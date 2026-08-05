@@ -5,44 +5,48 @@ from main import *
 
 tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
 
+def show_play_history( df, to_display, tab_title, key):
+    st.header(tab_title)
 
+    N = st.number_input(
+        "Top N", value=10,
+        min_value = 1, max_value = 100, key = f"{key}_N"
+    ) 
 
+    top_df = df.head(N).set_index(to_display)
 
+    def format_artist(label_name):
+        if to_display != "artist":
+            return f"{label_name} - {top_df.at[label_name, 'artist']}"
+        else:
+            return f"{label_name}"
+
+    selection = st.selectbox(
+                tab_title,
+                top_df.index,
+                format_func= format_artist,
+                key = f"{key}_select")
+
+    types_of_plays = {"Yearly - absolute (since start of full listening history)": "plays_yearly_absolute",
+                      f"Yearly - relative (since first listen of {to_display})": "plays_yearly_relative"
+                      #"Yearly - calendar year": "plays_yearly_calendar"
+                    }
+    select_type_of_plays = st.selectbox(
+                            "Type of plays",
+                            types_of_plays.keys(),
+                            key = f"{key}_type_select")
+    
+    plays = top_df.at[selection,  types_of_plays[select_type_of_plays] ]
+
+    fig = plot_play_history(plays)
+    st.pyplot(fig)
+    
 with tab1:
-    st.header("Tracks")
-    N = st.number_input(
-        "Top N", value=10, placeholder="Type a number...",
-        min_value = 1, max_value = 100, key ="N_tracks"
-    )
-
-    top_df = song_plays_df.head(N).copy()
-    track = st.selectbox("Track", top_df["track"])
-    fig = plot_play_history(top_df.loc[top_df["track"] == track].iloc[0]["plays_yearly_absolute"])
-    st.pyplot(fig)
-    
+    show_play_history(song_plays_df, "track", "Tracks", "tracks")
 with tab2:
-    st.header("Artists")
-    N = st.number_input(
-        "Top N", value=10, placeholder="Type a number...",
-        min_value = 1, max_value = 100, key ="N_artists"
-    )
-
-    top_df = artist_plays_df.head(N).copy()
-    track = st.selectbox("Artist", top_df["artist"])
-    fig = plot_play_history(top_df.loc[top_df["artist"] == track].iloc[0]["plays_yearly_absolute"])
-    st.pyplot(fig)
-    
+    show_play_history(artist_plays_df, "artist", "Artists", "artist")
 with tab3:
-    st.header("Albums")
-    N = st.number_input(
-        "Top N", value=10, placeholder="Type a number...",
-        min_value = 1, max_value = 100, key = "N_albums"
-    )
-
-    top_df = album_plays_df.head(N).copy()
-    track = st.selectbox("Album", top_df["album"])
-    fig = plot_play_history(top_df.loc[top_df["album"] == track].iloc[0]["plays_yearly_absolute"])
-    st.pyplot(fig)
+    show_play_history(album_plays_df, "album", "Albums", "album")
 
 
 

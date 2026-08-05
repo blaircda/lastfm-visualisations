@@ -4,7 +4,7 @@ def grouped_by_plays(history_df, grouping):
     plays = history_df.groupby(grouping)["uts"].agg(list)
     # convert back to a dataframe
     plays_df = plays.reset_index()
-    # add total plays_colum n and sort
+    # add total plays_column and sort
     plays_df["total_plays"] = plays_df["uts"].apply(len)
     plays_df = plays_df.sort_values("total_plays", ascending=False)
 

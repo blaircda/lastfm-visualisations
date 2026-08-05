@@ -14,9 +14,9 @@ song_plays_df = grouped_by_plays(listening_history, ["track","artist"])
 album_plays_df = grouped_by_plays(listening_history, ["album","artist"])
 artist_plays_df = grouped_by_plays(listening_history, ["artist"])
 
-#print(song_plays_df.head(10))
-#print(album_plays_df.head(10))
-#print(artist_plays_df.head(10))
+print(song_plays_df.head(10))
+print(album_plays_df.head(10))
+print(artist_plays_df.head(10))
 
 def plot_plays_top( play_df, Ntop = 10 ):
     top_df = play_df.head(Ntop).copy()
