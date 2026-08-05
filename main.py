@@ -1,4 +1,4 @@
-from input import *
+from load_data import *
 
 history_file = "recenttracks-antiselfdual-1737987394.csv"
 
