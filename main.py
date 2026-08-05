@@ -11,7 +11,7 @@ start_uts = listening_history["uts"].min()
 diff_uts = end_uts - start_uts
 
 
-# group uts plays as a list organised by track/artist -
+# group uts plays as a list organised by track/artist
 song_plays = listening_history.groupby(["track", "artist"])["uts"].agg(list)
 # convert back to a dataframe
 song_plays_df = song_plays.reset_index()
