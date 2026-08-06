@@ -16,3 +16,19 @@ def plot_play_history(x, y):
     ax.set_xlabel("Years")
         
     return fig
+
+def plot_play_histories(df, items, options):
+    col = options["column"]
+    fig, ax = plt.subplots()
+
+    for item in items:
+        plays = df.loc[item, col]
+        if options["x"] == None:
+            x =range(len(plays))
+        else:
+            x = options["x"]
+        ax.plot(x, plays, label=item)
+    ax.set_ylabel("Plays")
+    ax.set_xlabel("Years")
+    ax.legend()
+    return fig

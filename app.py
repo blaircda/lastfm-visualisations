@@ -21,31 +21,51 @@ def show_play_history( df, to_display, tab_title, key):
         else:
             return f"{label_name}"
 
-    selection = st.selectbox(
+    selection = st.multiselect(
                 tab_title,
                 top_df.index,
-                format_func= format_artist,
+                format_func = format_artist,
                 key = f"{key}_select")
 
-    types_of_plays = {"By years since start of listening history": "plays_yearly_absolute",
-                      f"By years since {to_display}": "plays_yearly_relative",
-                      "By calendar years": "plays_yearly_cal"
-                    }
-    select_type_of_plays = st.selectbox(
+    plot_options = {
+        "Calendar years": {
+         "column": "plays_yearly_cal",
+         "x": calendar_axis,
+         "xlabel": "Year"
+         },
+         "Years since start of data": {
+         "column": "plays_yearly_absolute",
+         "x": None,
+         "xlabel": "Years since start of data"
+         },
+         f"Years since first listen of {to_display}": {
+         "column": "plays_yearly_relative",
+         "x": None,
+         "xlabel": "Years since first listen of {to_display}"
+        }
+    }
+    
+    select_plot_type = st.selectbox(
                             "Type of plays",
-                            types_of_plays.keys(),
+                            plot_options.keys(),
                             key = f"{key}_type_select")
-    sel_type = types_of_plays[select_type_of_plays]
-    plays = top_df.at[selection,  sel_type]
+                            
+    options = plot_options[select_plot_type]
+
+    if selection:
+        fig = plot_play_histories(top_df, selection, options)
+        st.pyplot(fig)
+        
+    #plays = top_df.at[selection,  sel_type]
     
     #print( top_df.loc[selection] )
 
-    if sel_type == "plays_yearly_cal":
-        fig = plot_play_history(year_axis, plays)
-    else:
-        fig = plot_play_history(range(len(plays)), plays)
+    #if sel_type == "plays_yearly_cal":
+    #    fig = plot_play_history(year_axis, plays)
+    #else:
+    #    fig = plot_play_history(range(len(plays)), plays)
 
-    st.pyplot(fig)
+    #st.pyplot(fig)
     
 with tab1:
     show_play_history(song_plays_df, "track", "Tracks", "tracks")

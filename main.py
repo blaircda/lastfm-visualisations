@@ -10,7 +10,7 @@ excludes = ["Chris Blair", "Super Simple Songs"]
 listening_history = history_to_df(history_file, excludes)
 
 yi, yf = min(listening_history['year']), max(listening_history['year'])
-year_axis = [str(x)[2:] for x in range(yi, yf+1)]
+calendar_axis = [str(x)[2:] for x in range(yi, yf+1)]
 
 # group uts plays as a list organised by track/artist
 song_plays_df, song_totals_cal_year = grouped_by_plays(listening_history, ["track","artist"])
