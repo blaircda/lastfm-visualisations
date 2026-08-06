@@ -13,9 +13,14 @@ yi, yf = min(listening_history['year']), max(listening_history['year'])
 calendar_axis = [str(x)[2:] for x in range(yi, yf+1)]
 
 # group uts plays as a list organised by track/artist
-song_plays_df, song_totals_cal_year = grouped_by_plays(listening_history, ["track","artist"])
-album_plays_df, album_totals_cal_year = grouped_by_plays(listening_history, ["album","artist"])
-artist_plays_df, artist_totals_cal_year = grouped_by_plays(listening_history, ["artist"])
+song_plays_df = grouped_by_plays(listening_history, ["track","artist"])
+album_plays_df = grouped_by_plays(listening_history, ["album","artist"])
+artist_plays_df = grouped_by_plays(listening_history, ["artist"])
+
+song_yearly_novelty_df = novelty_in_time( "year", ["track", "artist"], listening_history)
+album_yearly_novelty_df = novelty_in_time( "year", ["album", "artist"], listening_history)
+artist_yearly_novelty_df = novelty_in_time( "year", "artist", listening_history)
+
 
 #print(song_plays_df.head(10))
 #print(album_plays_df.head(10))

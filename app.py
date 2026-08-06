@@ -3,76 +3,143 @@ import streamlit as st
 from main import *
 from plot_functions import *
 
-tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+mt1, mt2, mt3 = st.tabs(["Play histories", "Power laws", "Old vs new"])
 
-def show_play_history( df, to_display, tab_title, key):
-    st.header(tab_title)
+def format_artist(label_name, display_item, top_df):
+    if display_item != "artist":
+        return f"{label_name} - {top_df.at[label_name, 'artist']} ({top_df.at[label_name,'total_plays']} plays)"
+    else:
+        return f"{label_name} ({top_df.at[label_name,'total_plays']} plays)"
 
+def show_play_history(df, display_item):
+    """
+    function to manage display of play_histories (calendar year, absolute, relative)
+    for different display_item
+    which can be one of: track, artist, album
+    """
+    #st.write(display_item)
+    
     N = st.number_input(
         "Top N", value=10,
-        min_value = 1, max_value = 100, key = f"{key}_N"
+        min_value = 1, max_value = 100, key = f"{display_item}_N"
     ) 
 
-    top_df = df.head(N).set_index(to_display)
-
-    def format_artist(label_name):
-        if to_display != "artist":
-            return f"{label_name} - {top_df.at[label_name, 'artist']}"
-        else:
-            return f"{label_name}"
-
+    top_df = df.head(N).set_index(display_item)
+    
     selection = st.multiselect(
-                tab_title,
+                display_item.capitalize(),
                 top_df.index,
-                format_func = format_artist,
-                key = f"{key}_select")
+                format_func = lambda x : format_artist(x, display_item, top_df),
+                key = f"{display_item}_select")
 
     plot_options = {
         "Calendar years": {
          "column": "plays_yearly_cal",
          "x": calendar_axis,
-         "xlabel": "Year"
+         "xlabel": "Year",
+         "cumulative": False
          },
          "Years since start of data": {
          "column": "plays_yearly_absolute",
          "x": None,
-         "xlabel": "Years since start of data"
+         "xlabel": "Years since start of data",
+         "cumulative": False
          },
-         f"Years since first listen of {to_display}": {
+         f"Years since first listen of {display_item}": {
          "column": "plays_yearly_relative",
          "x": None,
-         "xlabel": "Years since first listen of {to_display}"
+         "xlabel": "Years since first listen of {to_display}",
+         "cumulative": False,
+         },
+        "Calendar years (cumulative)": {
+         "column": "plays_yearly_cal",
+         "x": calendar_axis,
+         "xlabel": "Year",
+         "cumulative": True,
+         },
+         "Years since start of data (cumulative)": {
+         "column": "plays_yearly_absolute",
+         "x": None,
+         "xlabel": "Years since start of data",
+         "cumulative": True,
+         },
+         f"Years since first listen of {display_item} (cumulative)": {
+         "column": "plays_yearly_relative",
+         "x": None,
+         "xlabel": "Years since first listen of {to_display}",
+         "cumulative": True,
         }
     }
     
     select_plot_type = st.selectbox(
-                            "Type of plays",
+                            "Time range",
                             plot_options.keys(),
-                            key = f"{key}_type_select")
+                            key = f"{display_item}_type_select")
                             
     options = plot_options[select_plot_type]
 
     if selection:
         fig = plot_play_histories(top_df, selection, options)
-        st.pyplot(fig)
+        st.pyplot(fig,use_container_width=True)
         
     #plays = top_df.at[selection,  sel_type]
-    
-    #print( top_df.loc[selection] )
-
-    #if sel_type == "plays_yearly_cal":
-    #    fig = plot_play_history(year_axis, plays)
-    #else:
-    #    fig = plot_play_history(range(len(plays)), plays)
-
     #st.pyplot(fig)
+
+def show_novelties_in_time(df, display_item):
+    figs= plot_novelties_in_time(df)
+    for f in figs:
+        st.pyplot(f)
+
+def show_power_laws(df, display_item):
+    N = st.number_input(
+        "Top N", value=10,
+        min_value = 1, max_value = 100, key = f"{display_item}_N_PL"
+    ) 
+
+    top_df = df.head(N).set_index(display_item)
     
-with tab1:
-    show_play_history(song_plays_df, "track", "Tracks", "tracks")
-with tab2:
-    show_play_history(artist_plays_df, "artist", "Artists", "artist")
-with tab3:
-    show_play_history(album_plays_df, "album", "Albums", "album")
+    selection = st.multiselect(
+                display_item.capitalize(),
+                top_df.index,
+                format_func = lambda x : format_artist(x, display_item, top_df),
+                key = f"{display_item}_select_PL")
+
+    if selection:
+        fig = plot_power_laws(top_df, selection)
+        st.pyplot(fig)
+
+# bare play histories
+with mt1:
+    st.header("Play histories")
+    tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+    with tab1:
+        show_play_history(song_plays_df, "track")
+    with tab2:
+        show_play_history(artist_plays_df, "artist")
+    with tab3:
+        show_play_history(album_plays_df, "album")
+# powerlaws 
+with mt2:
+    st.header("Power laws")
+    tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+    with tab1:
+        show_power_laws(song_plays_df, "track")
+    with tab2:
+        show_power_laws(artist_plays_df, "artist")
+    with tab3:
+        show_power_laws(album_plays_df, "album")
+# old vs new
+with mt3:
+    st.header("Old vs new")
+    tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+    with tab1:
+        show_novelties_in_time(song_yearly_novelty_df, "track")
+    with tab2:
+        show_novelties_in_time(artist_yearly_novelty_df, "artist")
+    with tab3:
+        show_novelties_in_time(album_yearly_novelty_df, "album")
+
+
 
 
 
