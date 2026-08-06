@@ -1,7 +1,7 @@
 import streamlit as st
-import matplotlib.pyplot as plt
 
 from main import *
+from plot_functions import *
 
 tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
 
@@ -27,18 +27,24 @@ def show_play_history( df, to_display, tab_title, key):
                 format_func= format_artist,
                 key = f"{key}_select")
 
-    types_of_plays = {"Yearly - absolute (since start of full listening history)": "plays_yearly_absolute",
-                      f"Yearly - relative (since first listen of {to_display})": "plays_yearly_relative"
-                      #"Yearly - calendar year": "plays_yearly_calendar"
+    types_of_plays = {"By years since start of listening history": "plays_yearly_absolute",
+                      f"By years since {to_display}": "plays_yearly_relative",
+                      "By calendar years": "plays_yearly_cal"
                     }
     select_type_of_plays = st.selectbox(
                             "Type of plays",
                             types_of_plays.keys(),
                             key = f"{key}_type_select")
+    sel_type = types_of_plays[select_type_of_plays]
+    plays = top_df.at[selection,  sel_type]
     
-    plays = top_df.at[selection,  types_of_plays[select_type_of_plays] ]
+    #print( top_df.loc[selection] )
 
-    fig = plot_play_history(plays)
+    if sel_type == "plays_yearly_cal":
+        fig = plot_play_history(year_axis, plays)
+    else:
+        fig = plot_play_history(range(len(plays)), plays)
+
     st.pyplot(fig)
     
 with tab1:

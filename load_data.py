@@ -1,4 +1,5 @@
 import pandas as pd
+import datetime
 
 def history_to_df(history_file, excludes):
     df = pd.read_csv(history_file,usecols=["track","artist","album","uts"])
@@ -15,5 +16,10 @@ def history_to_df(history_file, excludes):
     # e.g. " - 2015 Remaster" or " - Remastered"
     # anchored to end of string ($)
     df[["track","album"]] = df[["track","album"]].replace(r' -.*[Rr]emaster.*$','',regex=True)
-    
+
+    # add calendar data
+    df['year'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).year)
+    df['month'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).month)
+    df['day'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).day)
+
     return df
