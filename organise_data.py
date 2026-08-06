@@ -107,4 +107,3 @@ def novelty_in_time( time_grouping, item_grouping, history_df):
     
     return stats_df
 
-    

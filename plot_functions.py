@@ -19,7 +19,7 @@ def plot_play_history(x, y):
 
 def plot_play_histories(df, items, options):
     col = options["column"]
-    #fig, ax = plt.subplots(figsize=(30, 20))
+    fig, ax = plt.subplots(figsize=(15, 10))
     fig, ax = plt.subplots()
 
     for item in items:

@@ -2,6 +2,9 @@ import streamlit as st
 
 from main import *
 from plot_functions import *
+from power_laws import *
+
+st.set_page_config(layout="wide")
 
 mt1, mt2, mt3 = st.tabs(["Play histories", "Power laws", "Old vs new"])
 
@@ -20,8 +23,8 @@ def show_play_history(df, display_item):
     #st.write(display_item)
     
     N = st.number_input(
-        "Top N", value=10,
-        min_value = 1, max_value = 100, key = f"{display_item}_N"
+        "Top N", value=100,
+        min_value = 1, max_value = 250, key = f"{display_item}_N"
     ) 
 
     top_df = df.head(N).set_index(display_item)
@@ -80,7 +83,7 @@ def show_play_history(df, display_item):
 
     if selection:
         fig = plot_play_histories(top_df, selection, options)
-        st.pyplot(fig,use_container_width=True)
+        st.pyplot(fig,width='stretch')
         
     #plays = top_df.at[selection,  sel_type]
     #st.pyplot(fig)
@@ -91,22 +94,21 @@ def show_novelties_in_time(df, display_item):
         st.pyplot(f)
 
 def show_power_laws(df, display_item):
-    N = st.number_input(
-        "Top N", value=10,
-        min_value = 1, max_value = 100, key = f"{display_item}_N_PL"
-    ) 
-
-    top_df = df.head(N).set_index(display_item)
+    #top_df = df.head(N).set_index(display_item)
+    df = df.set_index(display_item)
     
-    selection = st.multiselect(
+    selection = st.selectbox(
                 display_item.capitalize(),
-                top_df.index,
-                format_func = lambda x : format_artist(x, display_item, top_df),
+                df.index,
+                format_func = lambda x : format_artist(x, display_item, df),
                 key = f"{display_item}_select_PL")
 
     if selection:
-        fig = plot_power_laws(top_df, selection)
+        fig = plot_fit(df, selection, power_law)
         st.pyplot(fig)
+
+    fig = plot_amplitudes_decays(df, display_item)
+    st.pyplot(fig)
 
 # bare play histories
 with mt1:
@@ -123,11 +125,12 @@ with mt2:
     st.header("Power laws")
     tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
     with tab1:
-        show_power_laws(song_plays_df, "track")
+        show_power_laws(song_power_laws_df, "track")
+
     with tab2:
-        show_power_laws(artist_plays_df, "artist")
+        show_power_laws(artist_power_laws_df, "artist")
     with tab3:
-        show_power_laws(album_plays_df, "album")
+        show_power_laws(album_power_laws_df, "album")
 # old vs new
 with mt3:
     st.header("Old vs new")

@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 
 from load_data import *
 from organise_data import *
+from power_laws import *
 
 history_file = "recenttracks-antiselfdual-1737987394.csv"
 
@@ -21,6 +22,9 @@ song_yearly_novelty_df = novelty_in_time( "year", ["track", "artist"], listening
 album_yearly_novelty_df = novelty_in_time( "year", ["album", "artist"], listening_history)
 artist_yearly_novelty_df = novelty_in_time( "year", "artist", listening_history)
 
+song_power_laws_df = calculate_power_laws(song_plays_df, 100, power_law)
+album_power_laws_df = calculate_power_laws(album_plays_df, 100, power_law)
+artist_power_laws_df = calculate_power_laws(artist_plays_df, 100, power_law)
 
 #print(song_plays_df.head(10))
 #print(album_plays_df.head(10))
