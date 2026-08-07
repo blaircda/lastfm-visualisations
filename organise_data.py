@@ -1,4 +1,7 @@
 import pandas as pd
+import numpy as np
+import datetime
+from scipy.optimize import curve_fit
 
 def grouped_by_plays(history_df, grouping):
     """
@@ -30,7 +33,7 @@ def grouped_by_plays(history_df, grouping):
     plays_df = plays_df.sort_values("total_plays", ascending=False)
 
     # reset index
-    plays_df = plays_df.reset_index()
+    #plays_df = plays_df.reset_index()
 
     return plays_df
 
@@ -107,3 +110,111 @@ def novelty_in_time( time_grouping, item_grouping, history_df):
     
     return stats_df
 
+def power_law(x,a,b):
+  return a*x**(-b)
+
+def get_fit(y_data, fit_function, shift_to_max = False):
+    """
+    fits the function fit_function to the data y_data
+    viewed as a function of timesteps [1,2,3,...]
+    optionally, start the fit from the max value of y_data
+    returns the fit parameters and the shift if possible
+    otherwise returns None
+    """
+    shift = 0 
+    if shift_to_max:
+        while y_data[0] <  max(y_data):
+            shift += 1
+            y_data =  y_data[1:]
+        
+    if len(y_data)>1:
+        try:
+            x_data = [float(y) for y in range(1,len(y_data)+1)]
+            popt, pcov = curve_fit(fit_function, x_data, y_data, p0=[max(y_data),2])
+            perr = np.sqrt(np.diag(pcov))
+            return popt, shift
+        except (RuntimeError, TypeError, ValueError):
+            return None
+    else:
+        return None
+
+def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
+    """
+    takes the first Ntop entries of dataframe df
+    and fits the function fit_function to the the relatively yearly plays of each entry
+    where fitting is not possible, the entries are dropped and an error message is logged to the terminal
+    returns the new dataframe with fit information
+    optionally, apply shift to fit only starting with max value of relatively yearly plays
+    """
+    top_df = df.head(Ntop).drop(columns=["uts", "plays_yearly_absolute", "plays_yearly_cal"])
+    top_df["get_fit_info"] = top_df["plays_yearly_relative"].apply(lambda x: get_fit(x, fit_function, shift_to_max))
+    # drop cases where fitting is not possible
+    # alternatively: keep them as null and don't drop them in st power laws tab selectbox
+    # this would allow the same df to be used for both play histories and power laws
+    print("\nUnable to make a fit for the following:")
+    print( top_df[ (top_df["get_fit_info"].isnull()) ] )
+    print("\n")
+    top_df = top_df[ ~ (top_df["get_fit_info"].isnull()) ]
+    top_df["fit_vars"] = top_df["get_fit_info"].apply(lambda x: x[0])
+    top_df["shift"] = top_df["get_fit_info"].apply(lambda x: x[1])
+    top_df = top_df.drop(columns=["get_fit_info"])
+    return top_df
+
+def history_to_df(history_file, excludes):
+    """
+    read csv file and perform some basic data cleanup
+    """
+    df = pd.read_csv(history_file,usecols=["track","artist","album","uts"])
+    df.drop_duplicates(inplace=True)
+    df = df[ ~df.artist.isin(excludes) ]
+    
+    # remove remaster tags wrapped in brackets
+    # e.g. " (2009 Remaster)" or " [2011 Remastered Version]"
+    # [^(]* (instead of greedy .*) stops at the first ')'
+    # so e.g. "Song (feat. Artist) (2011 Remaster)" only loses the remaster part
+    df[["track","album"]] = df[["track","album"]].replace(r' \(.*[Rr]emaster[^(]*\)| \[.*[Rr]emaster.*\]','',regex=True)
+
+    # remove remaster tags written as a dash-separated suffix
+    # e.g. " - 2015 Remaster" or " - Remastered"
+    # anchored to end of string ($)
+    df[["track","album"]] = df[["track","album"]].replace(r' -.*[Rr]emaster.*$','',regex=True)
+
+    # add calendar data
+    df['year'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).year)
+    df['month'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).month)
+    df['day'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).day)
+
+    return df
+
+def analyse_history_csv(history_file, excludes):
+    """
+    takes csv file and processes it into various dataframes structured to contain interesting information
+    """
+    listening_history = history_to_df(history_file, excludes)
+
+    data = {}
+
+    data["total_plays"] = len(listening_history)
+
+    start_uts = min(listening_history["uts"])
+    end_uts = max(listening_history["uts"])
+    data["start_date"] = datetime.datetime.fromtimestamp(start_uts).strftime("%Y-%m-%d")
+    data["end_date"] = datetime.datetime.fromtimestamp(end_uts).strftime("%Y-%m-%d")
+
+    yi, yf = min(listening_history['year']), max(listening_history['year'])
+    data["calendar_axis"] = [str(x)[2:] for x in range(yi, yf+1)]
+
+    # group uts plays as a list organised by track/artist
+    data["track_plays"] = grouped_by_plays(listening_history, ["track","artist"])
+    data["album_plays"] = grouped_by_plays(listening_history, ["album","artist"])
+    data["artist_plays"] = grouped_by_plays(listening_history, ["artist"])
+
+    data["track_novelty"] = novelty_in_time( "year", ["track", "artist"], listening_history)
+    data["album_novelty"] = novelty_in_time( "year", ["album", "artist"], listening_history)
+    data["artist_novelty"] = novelty_in_time( "year", "artist", listening_history)
+
+    data["track_pl"] = calculate_fit(data["track_plays"], 250, power_law, shift_to_max = True)
+    data["album_pl"] = calculate_fit(data["album_plays"] , 250, power_law)
+    data["artist_pl"] = calculate_fit(data["artist_plays"], 250, power_law)
+
+    return data
