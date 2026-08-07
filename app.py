@@ -2,7 +2,7 @@ import streamlit as st
 from display_functions import  *
 from organise_data import *
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="LastFM visualisations")
 col1, col2, col3 = st.columns([0.15,0.7,0.15])
 
 history_file = "recenttracks-antiselfdual-1737987394.csv"
