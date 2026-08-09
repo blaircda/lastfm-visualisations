@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import streamlit as st
 import datetime
 from scipy.optimize import curve_fit
 
@@ -153,13 +154,14 @@ def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
     # this would allow the same df to be used for both play histories and power laws
     print("\nUnable to make a fit for the following:")
     print( top_df[ (top_df["get_fit_info"].isnull()) ] )
-    print("\n")
+    print("\n")    
     top_df = top_df[ ~ (top_df["get_fit_info"].isnull()) ]
     top_df["fit_vars"] = top_df["get_fit_info"].apply(lambda x: x[0])
     top_df["shift"] = top_df["get_fit_info"].apply(lambda x: x[1])
     top_df = top_df.drop(columns=["get_fit_info"])
     return top_df
 
+@st.cache_data
 def history_to_df(history_file, excludes):
     """
     read csv file and perform some basic data cleanup
@@ -186,10 +188,14 @@ def history_to_df(history_file, excludes):
 
     return df
 
+@st.cache_data
 def analyse_history_csv(history_file, excludes):
     """
     takes csv file and processes it into various dataframes structured to contain interesting information
     """
+
+    print("\nAnalysing CSV file...............\n")
+    
     listening_history = history_to_df(history_file, excludes)
 
     data = {}
@@ -217,4 +223,5 @@ def analyse_history_csv(history_file, excludes):
     data["album_pl"] = calculate_fit(data["album_plays"] , 250, power_law)
     data["artist_pl"] = calculate_fit(data["artist_plays"], 250, power_law)
 
+    print("\nDone")
     return data

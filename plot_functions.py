@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from adjustText import adjust_text
 from organise_data import power_law
+
 
 def plot_plays_top( play_df, Ntop = 10 ):
     top_df = play_df.head(Ntop).copy()
@@ -92,7 +94,7 @@ def plot_fit_multi(df, items, fit_function):
     for each item in items, extracts the plays_yearly_relative data from df
     and plots both this and the graph of fit_function fitted to that data
     """
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(layout="constrained")
 
     ax.set_xlabel("Years")
     ax.set_ylabel("Listens")
@@ -150,6 +152,34 @@ def plot_amplitudes_decays(df):
         ax.text(amplitudes[i]-5,decays[i]+0.025,"   "+name)
     ax.set_xlabel("Coefficient")
     ax.set_ylabel("Exponent")
+    return fig
+
+def plot_amplitudes_decays_selection(df,items):
+    """
+    for power law fits At^*(b)
+    plots b against A and annotates with the name of the associated item
+    """
+    fit_vars = df["fit_vars"]
+    amplitudes = [i[0] for i in fit_vars]
+    decays = [-i[1] for i in fit_vars]
+    
+    fig, ax = plt.subplots(layout="constrained")
+    
+    ax.scatter(amplitudes, decays, color="gray")
+
+    names = []
+    for item in items:
+        A,b = df.loc[item,"fit_vars"]
+        ax.plot([A],[-b], marker="o")
+        if type(item) == tuple:
+            name = item[0]
+        else:
+            name = item
+        names.append(ax.text(A-5,-b-0.025,"   "+name))
+    ax.set_xlabel("Coefficient")
+    ax.set_ylabel("Exponent")
+    #adjust_text(names)
+
     return fig
 
 ########################################################################

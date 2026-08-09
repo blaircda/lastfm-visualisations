@@ -102,7 +102,13 @@ def show_novelties_in_time(df, display_item):
 def show_power_laws(df, display_item):
     """
     allows selection and display of power law graphs
-    """  
+    """
+    
+    #exponents = [p[1] for p in df["fit_vars"]]
+    #min_exp = min(exponents)
+    #max_exp = max(exponents)
+    #N = st.slider("Exponent range", -min_exp, -max_exp, (-min_exp, -max_exp), key=f"{display_item}_PL_slider")
+    #st.write("Selected range:", N)
 
     selection = st.multiselect(
                 display_item.capitalize(),
@@ -110,12 +116,13 @@ def show_power_laws(df, display_item):
                 format_func = lambda x : format_item(x,df),
                 key = f"{display_item}_select_PL")
 
+    #if len(selection)>1:
+    fig_ad = plot_amplitudes_decays_selection(df, selection)
+    st.pyplot(fig_ad)
     if selection:
         fig = plot_fit_multi(df, selection, power_law)
         st.pyplot(fig)
-        if len(selection)>1:
-            fig_ad = plot_amplitudes_decays(df.loc[selection])
-            st.pyplot(fig_ad)
+
 
 def show_power_law_summaries(df, display_item):
     """
