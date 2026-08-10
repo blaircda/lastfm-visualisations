@@ -4,6 +4,35 @@ import streamlit as st
 import datetime
 from scipy.optimize import curve_fit
 
+def strip_zeros(x):
+    while x[0] == 0:
+        x = x[1:]
+    return x
+
+def all_plays(history_df):
+    stats = {}
+    
+    plays = history_df["uts"]
+    start_uts = min(plays)
+    end_uts = max(plays)
+
+    stats["plays_yearly_absolute"] =  playtime(plays, 0, start_uts, end_uts, timespan = "absolute")
+    
+    #calendar years
+    stats["plays_yearly_cal"] = history_df.groupby("year").size().values.tolist()
+
+    #calendar months
+    stats["plays_monthly_cal"] = history_df.groupby(["year","month"]).size().values.tolist()
+
+    # months aggregated 
+    stats["plays_months"] =  history_df.groupby("month").size().values.tolist()
+    # days aggregated
+    stats["plays_days"] =  history_df.groupby("weekday").size().values.tolist()
+    # days aggregated yearly
+    stats["plays_days_yearly"] =  history_df.groupby(["year","weekday"]).size().values.tolist()
+    
+    return pd.DataFrame([stats])
+    
 def grouped_by_plays(history_df, grouping):
     """
     returns dataframes grouped by grouping = track-artist, artist, album-artist, etc
@@ -12,15 +41,7 @@ def grouped_by_plays(history_df, grouping):
     
     # convert back to a dataframe
     plays_df = plays.to_frame()
-
-    #calendar years
-    plays_by_cal_year = history_df.groupby("year")[grouping].value_counts()    
-    #plays_df["plays_yearly_cal"] = plays_by_cal_year.unstack("year", fill_value=0).values.tolist()
-
-    plays_df["plays_yearly_cal"] = plays_by_cal_year.unstack("year", fill_value=0).reindex(plays_df.index).values.tolist()
-
-    #plays_df["plays_yearly_cal"] = plays_df["uts"].apply(lambda x: playtime(x, start_uts, end_uts, timespan = "calendar") 
-
+    
     # yearly plays
     start_uts = history_df["uts"].min()
     end_uts = history_df["uts"].max()
@@ -29,12 +50,25 @@ def grouped_by_plays(history_df, grouping):
     # plays by year counting from first listen of particular artist/track/album
     plays_df["plays_yearly_relative"] = plays_df["uts"].apply(lambda x: playtime(x, 0, start_uts, end_uts, timespan = "relative"))
 
+    #calendar years
+    plays_by_cal_year = history_df.groupby("year")[grouping].value_counts()    
+    plays_df["plays_yearly_cal"] = plays_by_cal_year.unstack("year", fill_value=0).reindex(plays_df.index).values.tolist()
+    #calendar months
+    plays_by_cal_month = history_df.groupby(["year","month"])[grouping].value_counts()    
+    plays_df["plays_monthly_cal"] = plays_by_cal_month.unstack(["year","month"], fill_value=0).reindex(plays_df.index).values.tolist()
+    # relative calendar_months
+    plays_df["plays_monthly_relative"] = plays_df["plays_monthly_cal"].apply(strip_zeros)
+
+    # months aggregated 
+    plays_by_month = history_df.groupby("month")[grouping].value_counts()    
+    plays_df["plays_months"] = plays_by_month.unstack("month", fill_value=0).reindex(plays_df.index).values.tolist()
+    # days aggregated
+    plays_by_day = history_df.groupby("weekday")[grouping].value_counts()    
+    plays_df["plays_days"] = plays_by_day.unstack("weekday", fill_value=0).reindex(plays_df.index).values.tolist()
+
     # add total plays_column and sort    
     plays_df["total_plays"] = plays_df["uts"].apply(len)
     plays_df = plays_df.sort_values("total_plays", ascending=False)
-
-    # reset index
-    #plays_df = plays_df.reset_index()
 
     return plays_df
 
@@ -157,7 +191,6 @@ def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
     top_df = df.head(Ntop).drop(columns=["uts", "plays_yearly_absolute", "plays_yearly_cal"])
     
     result = top_df["plays_yearly_relative"].apply(lambda x: get_fit(x, fit_function, shift_to_max))
-    print(result)
     names = [f"param_{i}" for i in range(len(result.iloc[0])-1)] + ["shift"]
     top_df[names] = pd.DataFrame(result.tolist(), index=top_df.index)
 
@@ -194,7 +227,7 @@ def history_to_df(history_file, excludes):
     df['year'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).year)
     df['month'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).month)
     df['day'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).day)
-
+    df['weekday'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).isoweekday())
     return df
 
 @st.cache_data
@@ -213,16 +246,27 @@ def analyse_history_csv(history_file, excludes):
 
     start_uts = min(listening_history["uts"])
     end_uts = max(listening_history["uts"])
-    data["start_date"] = datetime.datetime.fromtimestamp(start_uts).strftime("%Y-%m-%d")
-    data["end_date"] = datetime.datetime.fromtimestamp(end_uts).strftime("%Y-%m-%d")
+
+    start = datetime.datetime.fromtimestamp(start_uts)
+    end = datetime.datetime.fromtimestamp(end_uts)
+
+    data["start"] = start
+    data["end"] = end 
+    #data["start_date"] = start.strftime("%Y-%m-%d")
+    #data["end_date"] = end.strftime("%Y-%m-%d")
+
+    num_months = (end.year - start.year) * 12 + (end.month - start.month) + 1
 
     yi, yf = min(listening_history['year']), max(listening_history['year'])
     data["calendar_axis"] = [str(x)[2:] for x in range(yi, yf+1)]
+    data["monthly_axis"] = [x for x in range(num_months)]
 
     # group uts plays as a list organised by track/artist
     data["track_plays"] = grouped_by_plays(listening_history, ["track","artist"])
     data["album_plays"] = grouped_by_plays(listening_history, ["album","artist"])
     data["artist_plays"] = grouped_by_plays(listening_history, ["artist"])
+    group_all = lambda _: 0
+    data["everything"] = all_plays(listening_history)
 
     data["track_novelty"] = novelty_in_time( "year", ["track", "artist"], listening_history)
     data["album_novelty"] = novelty_in_time( "year", ["album", "artist"], listening_history)

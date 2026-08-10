@@ -14,7 +14,7 @@ with col2:
     st.title("LastFM visualisations")
 
     st.write("Data: csv download via https://mainstream.ghan.nl/export.html")
-    st.write(f"Timespan: {data["start_date"]} to {data["end_date"]}. Total plays: {data["total_plays"]}")
+    st.write(f"Timespan: {data["start"].strftime("%Y-%m-%d")} to {data["end"].strftime("%Y-%m-%d")}. Total plays: {data["total_plays"]}")
     #st.write(f"Total artists: {total_plays}")
     #st.write(f"Total albums: {total_plays}")
     #st.write(f"Total tracks: {total_plays}")
@@ -23,13 +23,15 @@ with col2:
     # bare play histories
     with mt1:
         st.header("Play histories")
-        tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Tracks", "Artists", "Albums", "Everything"])
         with tab1:
-            show_play_history(data["track_plays"], "track", data["calendar_axis"])
+            show_play_history(data["track_plays"], "track", data["calendar_axis"],data["monthly_axis"])
         with tab2:
-            show_play_history(data["artist_plays"], "artist", data["calendar_axis"])
+            show_play_history(data["artist_plays"], "artist",  data["calendar_axis"],data["monthly_axis"])
         with tab3:
-            show_play_history(data["album_plays"], "album", data["calendar_axis"])
+            show_play_history(data["album_plays"], "album",  data["calendar_axis"],data["monthly_axis"])
+        with tab4:
+            show_everything_history(data["everything"], "everything",  data["calendar_axis"],data["monthly_axis"])
     # powerlaws 
     with mt2:
         st.header("Power laws")

@@ -12,13 +12,23 @@ def plot_plays_top( play_df, Ntop = 10 ):
         st.pyplot(fig)
         plt.close(fig)
         
-def plot_play_history(x, y):
-    fig, ax = plt.subplots()
-
-    ax.plot(x, y)
-    ax.set_ylabel("Plays")
-    ax.set_xlabel("Years")
-        
+def plot_play_history(df, options):
+    col = options["column"]
+    fig, ax = plt.subplots(figsize=(15, 10))
+    plays=df.iloc[0][col]
+    if options["x"] == None:
+        x = range(len(plays))
+    else:
+        x = options["x"]
+    if options["cumulative"] == True:
+        plays = [ sum(plays[:i+1]) for i in range(len(plays)) ] 
+        ax.set_ylabel("Plays (cumulative)")
+    else:
+        ax.set_ylabel("Plays")
+    ax.plot(x, plays, label= "all plays", marker='o')
+    if options["xlabel"]=="Month":
+        ax.set_xticks(np.arange(0, len(plays), 12))
+    ax.set_xlabel(options["xlabel"])
     return fig
 
 def plot_play_histories(df, items, options):
@@ -33,7 +43,7 @@ def plot_play_histories(df, items, options):
     for item in items:
         plays = df.loc[item, col]
         if options["x"] == None:
-            x =range(len(plays))
+            x = range(len(plays))
         else:
             x = options["x"]
         if options["cumulative"] == True:
@@ -46,7 +56,9 @@ def plot_play_histories(df, items, options):
         else:
             lbl = item
         ax.plot(x, plays, label= lbl, marker='o')
-    ax.set_xlabel("Years")
+    if options["xlabel"]=="Month":
+        ax.set_xticks(np.arange(0, len(plays), 12))
+    ax.set_xlabel(options["xlabel"])
     ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, -0.1),
