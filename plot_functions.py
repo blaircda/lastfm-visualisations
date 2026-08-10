@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from adjustText import adjust_text
+#from adjustText import adjust_text
 from organise_data import power_law
 
 
