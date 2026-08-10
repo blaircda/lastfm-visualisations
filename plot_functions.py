@@ -27,8 +27,8 @@ def plot_play_histories(df, items, options):
     dict options specifies which data and what type of graph
     """
     col = options["column"]
-    #fig, ax = plt.subplots(figsize=(15, 10))
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(15, 10))
+    #fig, ax = plt.subplots()
 
     for item in items:
         plays = df.loc[item, col]
@@ -48,8 +48,9 @@ def plot_play_histories(df, items, options):
         ax.plot(x, plays, label= lbl, marker='o')
     ax.set_xlabel("Years")
     ax.legend(
-        loc="upper left",
-        bbox_to_anchor=(1.05, 1)
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.1),
+        ncols=4
     )
     return fig
 
@@ -63,13 +64,13 @@ def plot_fit(df, selection, fit_function):
     and plots both this and the graph of fit_function fitted to that data
     """
     y_data = df.loc[selection, "plays_yearly_relative"]
-    fit_vars = df.loc[selection,"fit_vars"]
+    fit_params = [df.loc[selection, c] for c in df.columns if c.startswith("param_")]
     shift = df.loc[selection,"shift"]
     
     x_data = [float(y) for y in range(1,len(y_data)+1)]
 
     x_model = np.linspace(1+shift, len(y_data), 100)
-    y_model = fit_function(x_model-shift,*fit_vars)
+    y_model = fit_function(x_model-shift,*fit_params)
 
     fig, ax = plt.subplots()
 
@@ -79,9 +80,9 @@ def plot_fit(df, selection, fit_function):
     ax.set_ylabel("Listens")
     ptitle = ""
     if fit_function == power_law:
-        a = str(int(round(fit_vars[0],0)))
-        b = str(round(fit_vars[1],2))
-        ptitle += f"{a} t**(-{b})"
+        a = str(int(round(fit_params[0],0)))
+        b = str(round(fit_params[1],2))
+        ptitle += f"{a} t**({b})"
     #ptitle = t[0][0]+' - '+t[0][1]
     #ptitle = ptitle + '\n Decay: '+str(int(round(a_opt,0)))+'*t**(-'+str(round(b_opt,2))+')'
     #ptitle = ptitle + '\n Error in decay: '+str(round(perr[1],2))
@@ -101,12 +102,12 @@ def plot_fit_multi(df, items, fit_function):
 
     for item in items:
         y_data = df.loc[item, "plays_yearly_relative"]
-        fit_vars = df.loc[item,"fit_vars"]
+        fit_params = [df.loc[item, c] for c in df.columns if c.startswith("param_")]
         shift = df.loc[item,"shift"]
         x_data = [float(y) for y in range(1,len(y_data)+1)]
 
         x_model = np.linspace(1+shift, len(y_data), 100)
-        y_model = fit_function(x_model-shift,*fit_vars)
+        y_model = fit_function(x_model-shift,*fit_params)
 
         if type(item) == tuple:
             lbl = ' - '.join(item)
@@ -114,9 +115,9 @@ def plot_fit_multi(df, items, fit_function):
             lbl = item
             
         if fit_function == power_law:
-            a = str(int(round(fit_vars[0],0)))
-            b = str(round(fit_vars[1],2))
-            lbl += f"\n{a} t**(-{b})"
+            a = str(int(round(fit_params[0],0)))
+            b = str(round(fit_params[1],2))
+            lbl += f"\n{a} t**({b})"
 
         ax.scatter(x_data, y_data)
         ax.plot(x_model, y_model, label=lbl)
@@ -133,10 +134,8 @@ def plot_amplitudes_decays(df):
     for power law fits At^*(b)
     plots b against A and annotates with the name of the associated item
     """
-    fit_vars = df["fit_vars"]
-
-    amplitudes = [i[0] for i in fit_vars]
-    decays = [-i[1] for i in fit_vars]
+    amplitudes = df["param_0"]
+    decays = df["param_1"]
 
     names = df.index
     
@@ -145,11 +144,12 @@ def plot_amplitudes_decays(df):
     ax.scatter(amplitudes, decays)
     # the average
     #ax.scatter(sum(amplitudes)/len(amplitudes),sum(decays)/len(decays),color='red')
-    
+    xshift=0
+    yshift=0
     for i, name in enumerate(names):
         if type(name) == tuple:
             name = name[0]
-        ax.text(amplitudes[i]-5,decays[i]+0.025,"   "+name)
+        ax.text(amplitudes[i]+xshift,decays[i]+yshift," -"+name)
     ax.set_xlabel("Coefficient")
     ax.set_ylabel("Exponent")
     return fig
@@ -159,23 +159,26 @@ def plot_amplitudes_decays_selection(df,items):
     for power law fits At^*(b)
     plots b against A and annotates with the name of the associated item
     """
-    fit_vars = df["fit_vars"]
-    amplitudes = [i[0] for i in fit_vars]
-    decays = [-i[1] for i in fit_vars]
-    
+    amplitudes = df["param_0"]
+    print(amplitudes)
+    decays = df["param_1"]
+    print(decays)
     fig, ax = plt.subplots(layout="constrained")
     
     ax.scatter(amplitudes, decays, color="gray")
 
     names = []
+    xshift=0
+    yshift=0
     for item in items:
-        A,b = df.loc[item,"fit_vars"]
-        ax.plot([A],[-b], marker="o")
+        A = df.loc[item,"param_0"]
+        b = df.loc[item, "param_1"]
+        ax.plot([A],[b], marker="o")
         if type(item) == tuple:
             name = item[0]
         else:
             name = item
-        names.append(ax.text(A-5,-b-0.025,"   "+name))
+        names.append(ax.text(A+xshift,b+yshift,""+name))
     ax.set_xlabel("Coefficient")
     ax.set_ylabel("Exponent")
     #adjust_text(names)

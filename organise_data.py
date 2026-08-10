@@ -112,7 +112,7 @@ def novelty_in_time( time_grouping, item_grouping, history_df):
     return stats_df
 
 def power_law(x,a,b):
-  return a*x**(-b)
+  return a*x**(b)
 
 def get_fit(y_data, fit_function, shift_to_max = False):
     """
@@ -122,19 +122,26 @@ def get_fit(y_data, fit_function, shift_to_max = False):
     returns the fit parameters and the shift if possible
     otherwise returns None
     """
+    if len(y_data) == 0:
+        return None
+
     shift = 0 
     if shift_to_max:
         while y_data[0] <  max(y_data):
             shift += 1
             y_data =  y_data[1:]
+    #if shift:
+    #    print("shifted to:")
+    #    print(y_data, "\n")
         
     if len(y_data)>1:
         try:
             x_data = [float(y) for y in range(1,len(y_data)+1)]
             popt, pcov = curve_fit(fit_function, x_data, y_data, p0=[max(y_data),2])
             perr = np.sqrt(np.diag(pcov))
-            return popt, shift
+            return (*popt, shift)
         except (RuntimeError, TypeError, ValueError):
+            print ("Error:", y_data)
             return None
     else:
         return None
@@ -148,17 +155,19 @@ def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
     optionally, apply shift to fit only starting with max value of relatively yearly plays
     """
     top_df = df.head(Ntop).drop(columns=["uts", "plays_yearly_absolute", "plays_yearly_cal"])
-    top_df["get_fit_info"] = top_df["plays_yearly_relative"].apply(lambda x: get_fit(x, fit_function, shift_to_max))
+    
+    result = top_df["plays_yearly_relative"].apply(lambda x: get_fit(x, fit_function, shift_to_max))
+    print(result)
+    names = [f"param_{i}" for i in range(len(result.iloc[0])-1)] + ["shift"]
+    top_df[names] = pd.DataFrame(result.tolist(), index=top_df.index)
+
     # drop cases where fitting is not possible
     # alternatively: keep them as null and don't drop them in st power laws tab selectbox
     # this would allow the same df to be used for both play histories and power laws
     print("\nUnable to make a fit for the following:")
-    print( top_df[ (top_df["get_fit_info"].isnull()) ] )
+    print( top_df[ top_df.isna().any(axis=1) ])
     print("\n")    
-    top_df = top_df[ ~ (top_df["get_fit_info"].isnull()) ]
-    top_df["fit_vars"] = top_df["get_fit_info"].apply(lambda x: x[0])
-    top_df["shift"] = top_df["get_fit_info"].apply(lambda x: x[1])
-    top_df = top_df.drop(columns=["get_fit_info"])
+    top_df.dropna(inplace=True)
     return top_df
 
 @st.cache_data

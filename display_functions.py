@@ -20,16 +20,28 @@ def show_play_history(df, display_item, calendar_axis):
     """
     #st.write(display_item)
     
-    N = st.number_input(
-        "Top N", value=100,
-        min_value = 1, max_value = 250, key = f"{display_item}_N"
-    ) 
+    #N = st.number_input(
+    #    "Top N", value=100,
+    #    min_value = 1, max_value = 250, key = f"{display_item}_N"
+    #)
+    min_ranking = 1
+    max_ranking = len(df)
+    ranking = st.slider("Ranking", min_ranking, max_ranking, (1, max_ranking), key = f"{display_item}_ranking_slider")
+    top_df = df.iloc[ranking[0]-1:ranking[1]]
 
-    top_df = df.head(N)#.set_index(display_item)
-    
+    min_total_plays = min(top_df["total_plays"])
+    max_total_plays = max(top_df["total_plays"])
+
+    if min_total_plays != max_total_plays:
+        total = st.slider("Total playcount", min_value = min_total_plays,  max_value = max_total_plays, value = ( min_total_plays, max_total_plays), key = f"{display_item}_total_play_slider")
+        filter_df = top_df[ (top_df["total_plays"] >= total[0] ) & (top_df["total_plays"] <= total[1]) ]
+    else:
+        st.write(f"Total playcount: {min_total_plays}")
+        filter_df = top_df
+
     selection = st.multiselect(
-                display_item.capitalize(),
-                top_df.index,
+                f"{display_item.capitalize()} ({len(filter_df)})",
+                filter_df.index,
                 format_func = lambda x : format_item(x,top_df),
                 key = f"{display_item}_select")
 
@@ -103,24 +115,28 @@ def show_power_laws(df, display_item):
     """
     allows selection and display of power law graphs
     """
-    
-    #exponents = [p[1] for p in df["fit_vars"]]
-    #min_exp = min(exponents)
-    #max_exp = max(exponents)
-    #N = st.slider("Exponent range", -min_exp, -max_exp, (-min_exp, -max_exp), key=f"{display_item}_PL_slider")
-    #st.write("Selected range:", N)
+    exponents = df["param_1"]
+
+    sliders = []
+    param_name = ["Coefficient", "Exponent"]
+    for k in range(2):
+        param = df[f"param_{k}"]    
+        min_param = min(param)
+        max_param = max(param)
+        sliders.append( st.slider(param_name[k], min_param, max_param, (min_param, max_param), key=f"{display_item}_PL_slider_{k}") )
+
+    filter_df = df[ (df["param_0"] >= sliders[0][0] ) & (df["param_0"] <= sliders[0][1]) &  (df["param_1"] >= sliders[1][0] ) & (df["param_1"] <= sliders[1][1]) ] 
 
     selection = st.multiselect(
                 display_item.capitalize(),
-                df.index,
+                filter_df.index,
                 format_func = lambda x : format_item(x,df),
                 key = f"{display_item}_select_PL")
 
-    #if len(selection)>1:
-    fig_ad = plot_amplitudes_decays_selection(df, selection)
+    fig_ad = plot_amplitudes_decays_selection(filter_df, selection)
     st.pyplot(fig_ad)
     if selection:
-        fig = plot_fit_multi(df, selection, power_law)
+        fig = plot_fit_multi(filter_df, selection, power_law)
         st.pyplot(fig)
 
 
