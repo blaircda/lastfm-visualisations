@@ -2,236 +2,82 @@ import matplotlib.pyplot as plt
 import numpy as np
 #from adjustText import adjust_text
 from organise_data import power_law
+import pandas as pd
 
-def plot_plays_top( play_df, Ntop = 10 ):
-    top_df = play_df.head(Ntop).copy()
-    for x in top_df.itertuples():
-        print(x)
-        fig = plot_play_history(x)
-        st.pyplot(fig)
-        plt.close(fig)
-        
-def plot_play_history(df, options):
-    col = options["column"]
-    fig, ax = plt.subplots(figsize=(15, 10))
-    plays=df.iloc[0][col]
-    if options["x"] == None:
-        x = range(len(plays))
-    else:
-        x = options["x"]
-    if options["cumulative"] == True:
-        plays = [ sum(plays[:i+1]) for i in range(len(plays)) ] 
-        ax.set_ylabel("Plays (cumulative)")
-    else:
-        ax.set_ylabel("Plays")
-    ax.plot(x, plays, label= "all plays", marker='o')
-    if options["xlabel"]=="Month":
-        ax.set_xticks(np.arange(0, len(plays), 12))
-    ax.set_xlabel(options["xlabel"])
-    return fig
-
-def plot_play_histories(df, items, options):
+def plot_play_histories(df, options):
     """
     for each item in items, extracts and plots data about item from df
     dict options specifies which data and what type of graph
     """
-    col = options["column"]
+    if isinstance(df, pd.Series):
+        df = df.to_frame().T
+
     fig, ax = plt.subplots(figsize=(15, 10))
     #fig, ax = plt.subplots()
+    if options["cumulative"]:
+        data = df.cumsum(axis=1) 
+        ax.set_ylabel("Plays (cumulative)")
+    else:
+        data = df
+        ax.set_ylabel("Plays")
 
-    for item in items:
-        plays = df.loc[item, col]
-        if options["x"] == None:
-            x = range(len(plays))
+    if isinstance(df.index, pd.MultiIndex):
+        data.index = [f"{item} – {artist}" for item, artist in df.index]
+    elif type(df.index[0]) == tuple:
+        data.index = [f"{item} – {artist}" for item, artist in df.index]
+
+
+    if "agg_period" in options.keys():
+        agg = options["agg_period"]
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        hours_div = [0,6,12,18]
+
+        labels = {
+            "month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+            "weekday": days,
+            "hour": list(range(24)),
+        }
+        
+        if agg == "day and hour":
+            ticks = range(0, 168, 6)
+            tick_labels = [f"{d} {h}h" for d in days for h in hours_div]
+            ax.tick_params(axis="x", labelrotation=90)
         else:
-            x = options["x"]
+            ticks = data.columns
+            tick_labels = labels[agg]
+        ax.set_xticks(ticks)
+        ax.set_xticklabels(tick_labels)
+
+
+    #data.T.plot(ax=ax, marker="o")
+    ax.plot(data.columns, data.T, marker="o")
+    ax.legend(
+        data.index,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.1),
+        ncols=4
+    )
+    ax.margins(x=0.05)
+    #ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncols=4)
+
+    return fig
+    
+    for item in items:
+        x = df.columns
+        
         if options["cumulative"] == True:
-            plays = [ sum(plays[:i+1]) for i in range(len(plays)) ] 
+            y = df.loc[item].cumsum()
             ax.set_ylabel("Plays (cumulative)")
         else:
+            y = df.loc[item]
             ax.set_ylabel("Plays")
-        if type(item) == tuple:
-            lbl = ' - '.join(item)
-        else:
-            lbl = item
-        ax.plot(x, plays, label= lbl, marker='o')
-    if options["xlabel"]=="Month":
-        ax.set_xticks(np.arange(0, len(plays), 12))
-    ax.set_xlabel(options["xlabel"])
-    ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.1),
-        ncols=4
-    )
-    return fig
-
-########################################################################
-# Power laws
-########################################################################
-
-def plot_fit(df, selection, fit_function):
-    """
-    for a specific selection, extracts the plays_yearly_relative data from df
-    and plots both this and the graph of fit_function fitted to that data
-    """
-    y_data = df.loc[selection, "plays_yearly_relative"]
-    fit_params = [df.loc[selection, c] for c in df.columns if c.startswith("param_")]
-    shift = df.loc[selection,"shift"]
-    
-    x_data = [float(y) for y in range(1,len(y_data)+1)]
-
-    x_model = np.linspace(1+shift, len(y_data), 100)
-    y_model = fit_function(x_model-shift,*fit_params)
-
-    fig, ax = plt.subplots()
-
-    ax.scatter(x_data, y_data)
-    ax.plot(x_model, y_model, color='r')
-    ax.set_xlabel("Years")
-    ax.set_ylabel("Listens")
-    ptitle = ""
-    if fit_function == power_law:
-        a = str(int(round(fit_params[0],0)))
-        b = str(round(fit_params[1],2))
-        ptitle += f"{a} t**({b})"
-    #ptitle = t[0][0]+' - '+t[0][1]
-    #ptitle = ptitle + '\n Decay: '+str(int(round(a_opt,0)))+'*t**(-'+str(round(b_opt,2))+')'
-    #ptitle = ptitle + '\n Error in decay: '+str(round(perr[1],2))
-    ax.set_title(ptitle)
-
-    return fig
-
-def plot_fit_multi(df, items, fit_function):
-    """
-    for each item in items, extracts the plays_yearly_relative data from df
-    and plots both this and the graph of fit_function fitted to that data
-    """
-    fig, ax = plt.subplots(layout="constrained")
-
-    ax.set_xlabel("Years")
-    ax.set_ylabel("Listens")
-
-    for item in items:
-        y_data = df.loc[item, "plays_yearly_relative"]
-        fit_params = [df.loc[item, c] for c in df.columns if c.startswith("param_")]
-        shift = df.loc[item,"shift"]
-        x_data = [float(y) for y in range(1,len(y_data)+1)]
-
-        x_model = np.linspace(1+shift, len(y_data), 100)
-        y_model = fit_function(x_model-shift,*fit_params)
 
         if type(item) == tuple:
             lbl = ' - '.join(item)
         else:
             lbl = item
-            
-        if fit_function == power_law:
-            a = str(int(round(fit_params[0],0)))
-            b = str(round(fit_params[1],2))
-            lbl += f"\n{a} t**({b})"
 
-        ax.scatter(x_data, y_data)
-        ax.plot(x_model, y_model, label=lbl)
-
-    ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.1),
-        ncols=4
-    )
-    return fig
-    
-def plot_amplitudes_decays(df):
-    """
-    for power law fits At^*(b)
-    plots b against A and annotates with the name of the associated item
-    """
-    amplitudes = df["param_0"]
-    decays = df["param_1"]
-
-    names = df.index
-    
-    fig, ax = plt.subplots()
-    
-    ax.scatter(amplitudes, decays)
-    # the average
-    #ax.scatter(sum(amplitudes)/len(amplitudes),sum(decays)/len(decays),color='red')
-    xshift=0
-    yshift=0
-    for i, name in enumerate(names):
-        if type(name) == tuple:
-            name = name[0]
-        ax.text(amplitudes[i]+xshift,decays[i]+yshift," -"+name)
-    ax.set_xlabel("Coefficient")
-    ax.set_ylabel("Exponent")
-    return fig
-
-def plot_amplitudes_decays_selection(df,items):
-    """
-    for power law fits At^*(b)
-    plots b against A and annotates with the name of the associated item
-    """
-    amplitudes = df["param_0"]
-    decays = df["param_1"]
-    fig, ax = plt.subplots(layout="constrained")
-    
-    ax.scatter(amplitudes, decays, color="gray")
-
-    names = []
-    xshift=0
-    yshift=0
-    for item in items:
-        A = df.loc[item,"param_0"]
-        b = df.loc[item, "param_1"]
-        ax.plot([A],[b], marker="o")
-        if type(item) == tuple:
-            name = item[0]
-        else:
-            name = item
-        names.append(ax.text(A+xshift,b+yshift,""+name))
-    ax.set_xlabel("Coefficient")
-    ax.set_ylabel("Exponent")
-    #adjust_text(names)
-
-    return fig
-
-########################################################################
-# New vs old
-########################################################################
-
-def plot_novelty_in_time( df, col_old, col_new, type_label, is_ratio):
-    """
-    plots a bar graph of new and old plays by year
-    optionally, as a ratio
-    """
-    fig, ax = plt.subplots(figsize=(10,5))
-
-    x = df["time"][1:]
-    y_old = df[col_old][1:]
-    y_new = df[col_new][1:]
-
-    ax.set_xticks(x)
-    ax.tick_params(axis="x", labelrotation=90)
-    ax.set_xlabel("Years")
-    ax.set_ylabel(type_label.capitalize())
-    ax.bar(x,y_old, label=f"Old")
-    ax.bar(x,y_new,bottom=y_old,label=f"New")
-
-    ax.legend()
-    return fig
-
-def plot_novelties_in_time( df ):
-    """
-    returns new vs old plots for distinct items, distinct items ratio, total plays, total plays ratio
-    """
-    cols = ["items", "plays"]
-    figs = {}
-    
-    for c in cols:
-        if c == "items":
-            type_label = "distinct"
-        else:
-            type_label = "total plays"
-        figs[c] =  plot_novelty_in_time(df, "old_"+c, "new_"+c, type_label, is_ratio=False) 
-        figs[c+"_ratio"] = plot_novelty_in_time(df, "old_"+c+"_ratio", "new_"+c+"_ratio", type_label="fraction "+type_label, is_ratio=True) 
+        ax.plot(x,y,marker="o",label=lbl)
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncols=4)
         
-    return figs
+    return fig
