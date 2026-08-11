@@ -3,7 +3,6 @@ import numpy as np
 #from adjustText import adjust_text
 from organise_data import power_law
 
-
 def plot_plays_top( play_df, Ntop = 10 ):
     top_df = play_df.head(Ntop).copy()
     for x in top_df.itertuples():
@@ -172,9 +171,7 @@ def plot_amplitudes_decays_selection(df,items):
     plots b against A and annotates with the name of the associated item
     """
     amplitudes = df["param_0"]
-    print(amplitudes)
     decays = df["param_1"]
-    print(decays)
     fig, ax = plt.subplots(layout="constrained")
     
     ax.scatter(amplitudes, decays, color="gray")

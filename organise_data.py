@@ -224,10 +224,13 @@ def history_to_df(history_file, excludes):
     df[["track","album"]] = df[["track","album"]].replace(r' -.*[Rr]emaster.*$','',regex=True)
 
     # add calendar data
-    df['year'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).year)
-    df['month'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).month)
-    df['day'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).day)
-    df['weekday'] = df['uts'].apply(lambda x: datetime.datetime.fromtimestamp(x).isoweekday())
+    df["datetime_utc"] = pd.to_datetime(df["uts"], unit="s", utc=True)
+    df["year"] = df["datetime_utc"].dt.year
+    df["month"] = df["datetime_utc"].dt.month
+    df["day"] = df["datetime_utc"].dt.day
+    df["weekday"] = df["datetime_utc"].dt.weekday
+    df["hour"] = df["datetime_utc"].dt.hour
+    
     return df
 
 @st.cache_data
