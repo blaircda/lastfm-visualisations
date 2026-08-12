@@ -64,7 +64,7 @@ def analyse_history_csv(history_file, excludes):
 
     return listening_history, summary_data, novelty_data
 
-    relative_plays, first_times = {}, {}
+    #relative_plays, first_times = {}, {}
     # this is overkill as I don't intend to use any except a few of these
     #relative_plays["track"], first_times["track"] = relative_listens(listening_history, "track_artist")
     #relative_plays["album"], first_times["album"] = relative_listens(listening_history, "album_artist")
@@ -89,31 +89,6 @@ def summarise_playcount(df, grouping):
     """
     return df.groupby(grouping).size().rename("total_plays").sort_values(ascending=False)
 
-def relative_listens_col(df, col):
-    """
-    pass a dataframe and return the yearly plays
-    """
-    # copy the filtered dataframe
-    plays = df.copy()
-    # extract the first listen for each item in col
-    first_listen = df.groupby(col).apply(lambda x: x.index.min())
-    # write first listen as a new column
-    plays["first_listen"] = plays[col].map(first_listen)
-
-    all_first_listens = plays["first_listen"].unique()
-    
-    # compute years elapsed since first listen and write as a new column
-    plays["years_since_first_listen"] = (plays.index - plays["first_listen"]).dt.days // 365
-    # aggregate the number of plays in each year since first listen
-    plays = plays.groupby([col,"years_since_first_listen"]).size()
-    # reindex within each item to fill in missing zeros within the range we have listening data for
-    # NOT adding extra zeros at the end
-    # finally unstack to get a dataframe where the index is the item and the columns are the years since first listen
-    plays = plays.groupby(level=0).apply(
-            lambda x: x.droplevel(0).reindex(range(x.index.get_level_values(1).max()+1), fill_value=0)
-    ).unstack("years_since_first_listen")
-    return plays, all_first_listens
-
 def relative_listens(df, grouping_col, make_multi=None):
     """
     pass a dataframe and return the yearly plays
@@ -128,14 +103,14 @@ def relative_listens(df, grouping_col, make_multi=None):
     all_first_listens = plays["first_listen"].unique()
     
     # compute years elapsed since first listen and write as a new column
-    plays["years_since_first_listen"] = (plays.index - plays["first_listen"]).dt.days // 365
+    plays["years_since_first_listen"] =  1+ (plays.index - plays["first_listen"]).dt.days // 365
     # aggregate the number of plays in each year since first listen
     plays = plays.groupby([grouping_col,"years_since_first_listen"]).size()
     # reindex within each item to fill in missing zeros within the range we have listening data for
     # NOT adding extra zeros at the end
     # finally unstack to get a dataframe where the index is the item and the columns are the years since first listen
     plays = plays.groupby(level=0).apply(
-            lambda x: x.droplevel(0).reindex(range(x.index.get_level_values(1).max()+1), fill_value=0)
+            lambda x: x.droplevel(0).reindex(range(1,x.index.get_level_values(1).max()+1), fill_value=0)
     ).unstack("years_since_first_listen")
     
     if make_multi:
@@ -153,15 +128,15 @@ def get_fit(y_data, fit_function, shift_to_max = False):
     """   
     if len(y_data) == 0:
         return None
-    print(y_data)
+    #print(y_data)
     shift = 0 
     if shift_to_max:
         while y_data[0] <  max(y_data):
             shift += 1
             y_data =  y_data[1:]
-    if shift:
-        print("shifted to:")
-        print(y_data, "\n")
+    #if shift:
+    #    print("shifted to:")
+    #    print(y_data, "\n")
         
     if len(y_data)>1:
         try:
@@ -170,10 +145,10 @@ def get_fit(y_data, fit_function, shift_to_max = False):
             perr = np.sqrt(np.diag(pcov))
             return (*popt, shift)
         except (RuntimeError, TypeError, ValueError):
-            print ("Error:", y_data)
+            print ("Could not fit the following:", y_data)
             return None
     else:
-        print ("Error:", y_data)
+        print ("Could not fit the following:", y_data)
         return None
 
 def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
@@ -207,15 +182,6 @@ def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
         print(failures)
 
     return top_df, failures
-
-    # drop cases where fitting is not possible
-    if len( top_df[ top_df["shift"].isna() ] ) > 0:
-        print("\nUnable to make a fit for the following:")
-        print( top_df[ top_df["shift"].isna()].index )
-        print( top_df[ top_df["shift"].isna() ])
-        print("\n")    
-        top_df = top_df[ ~top_df["shift"].isna() ]
-    return top_df
 
 def novelty_in_time( time_grouping, item_grouping, history_df):
     """

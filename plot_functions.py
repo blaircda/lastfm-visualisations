@@ -48,6 +48,11 @@ def plot_play_histories(df, options):
         ax.set_xticklabels(tick_labels)
 
     ax.plot(data.columns, data.T, marker="o")
+
+    if options["type"] == "cal":
+        ax.xaxis.set_major_locator(mdates.YearLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    
     ax.legend(
         data.index,
         loc="upper center",
@@ -55,6 +60,8 @@ def plot_play_histories(df, options):
         ncols=4
     )
     ax.margins(x=0.05)
+ 
+
     return fig
     
 def plot_time_data(df, freq, start, end, cumulative = False):
@@ -73,13 +80,15 @@ def plot_time_data(df, freq, start, end, cumulative = False):
 
     if cumulative:
         y_vals = plays.cumsum()
+        ax.set_ylabel("Plays (cumulative)")
     else:
         y_vals = plays
+        ax.set_ylabel("Plays")
+
         
     ax.plot(plays.index,y_vals, marker="o")
-    ax.set_ylabel("Plays")
     ax.set_title(f"Plays per {label.get(freq, "time")}")
-    
+
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     return fig
@@ -164,51 +173,6 @@ def plot_fit_multi(df, items, fit_function):
 
         x_model = np.linspace(1+shift, len(y_data), 100)
         y_model = fit_function(x_model-shift,*fit_params)
-            
-        if fit_function == power_law:
-            a = str(int(round(fit_params[0],0)))
-            b = str(round(fit_params[1],2))
-            lbl += f"\n{a} t**({b})"
-
-        ax.scatter(x_data, y_data)
-        ax.plot(x_model, y_model, label=lbl)
-
-    ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.1),
-        ncols=4
-    )
-    return fig
-
-def plot_fit_multi_old(df, items, fit_function):
-    """
-    for each item in items, extracts the plays_yearly_relative data from df
-    and plots both this and the graph of fit_function fitted to that data
-    """
-    fig, ax = plt.subplots(layout="constrained")
-
-    ax.set_xlabel("Years")
-    ax.set_ylabel("Listens")
-    
-    year_cols = [c for c in df.columns if isinstance(c,int)]
-    param_cols = [c for c in df.columns if isinstance(c, str) and c.startswith("param_")]
-
-    for item in items:
-        
-        y_data = df.loc[item, year_cols].dropna()
-        
-        fit_params = df.loc[item, param_cols].to_list()
-        shift = df.loc[item,"shift"]
-        
-        x_data = [float(y) for y in range(1,len(y_data)+1)]
-
-        x_model = np.linspace(1+shift, len(y_data), 100)
-        y_model = fit_function(x_model-shift,*fit_params)
-
-        if type(item) == tuple:
-            lbl = ' - '.join(item)
-        else:
-            lbl = item
             
         if fit_function == power_law:
             a = str(int(round(fit_params[0],0)))

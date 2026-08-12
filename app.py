@@ -46,19 +46,19 @@ with col2:
                 first_sel = filter_play_history(summary, "track", key="pl")
                 second_sel = multisel_items(first_sel, summary, "track", key = "pl_second", max_sels=250)
             if second_sel:
-                show_power_laws_any(listening_data, summary, second_sel, "track")
+                show_power_laws(listening_data, summary, second_sel, "track")
         with tab2:
             with st.expander("Filter artists to include"):
                 first_sel = filter_play_history(summary, "artist", key="pl")
                 second_sel = multisel_items(first_sel, summary, "artist", key = "pl_second", max_sels=250)
             if second_sel:
-                show_power_laws_any(listening_data,summary, second_sel, "artist")
+                show_power_laws(listening_data,summary, second_sel, "artist")
         with tab3:
             with st.expander("Filter albums to include"):
                 first_sel = filter_play_history(summary, "album", key="pl")
                 second_sel = multisel_items(first_sel, summary, "album", key = "pl_second", max_sels=250)
             if second_sel:
-                show_power_laws_any(listening_data,summary, second_sel, "album")
+                show_power_laws(listening_data,summary, second_sel, "album")
 
     # old vs new
     with mt3:

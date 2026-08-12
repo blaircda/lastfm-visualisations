@@ -249,7 +249,7 @@ def show_all_history(df, summary_df):
         
 ########################################################################
 
-def show_power_laws_any(df_history, df_summary, selection, display_item):
+def show_power_laws(df_history, df_summary, selection, display_item):
     """
     allows selection and display of power law graphs
     """
@@ -305,40 +305,6 @@ def show_power_laws_any(df_history, df_summary, selection, display_item):
             st.pyplot(fig)
             plt.close(fig)
 
-
-
-
-def show_power_laws(df, df_summary, display_item):
-    """
-    allows selection and display of power law graphs
-    """
-    st.write(df)
-
-    exponents = df["param_1"]
-
-    sliders = []
-    param_name = ["Coefficient", "Exponent"]
-    for k in range(2):
-        param = df[f"param_{k}"]    
-        min_param = min(param)
-        max_param = max(param)
-        sliders.append( st.slider(param_name[k], min_param, max_param, (min_param, max_param), key=f"{display_item}_PL_slider_{k}") )
-
-    filter_df = df[ (df["param_0"] >= sliders[0][0] ) & (df["param_0"] <= sliders[0][1]) &  (df["param_1"] >= sliders[1][0] ) & (df["param_1"] <= sliders[1][1]) ] 
-
-
-    selection = st.multiselect(
-                f"{display_item.capitalize()} ({len(filter_df)} options)",
-                filter_df.index,
-                format_func = lambda x : format_item(x,df_summary[display_item]),
-                key = f"{display_item}_select_PL")
-    st.write(selection)
-    fig_ad = plot_amplitudes_decays_selection(filter_df, selection)
-    st.pyplot(fig_ad)
-    if selection:
-        fig = plot_fit_multi(filter_df, selection, power_law)
-        st.pyplot(fig)
-
 ########################################################################
 def show_novelties_in_time(data, display_item):
     """
@@ -354,7 +320,7 @@ def show_novelties_in_time(data, display_item):
     st.pyplot(figs["plays"])
     st.pyplot(figs["plays_ratio"])
 
-
+########################################################################
 def format_item(item, top_df):
     """
     handles formatting of tuples (track/album, artist) as opposed to just artist
