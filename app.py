@@ -8,7 +8,7 @@ col1, col2, col3 = st.columns([0.15,0.7,0.15])
 history_file = "recenttracks-antiselfdual-1737987394.csv"
 excludes = ["Chris Blair", "Super Simple Songs"]
 
-listening_data, summary = analyse_history_csv(history_file, excludes)
+listening_data, summary, novelty, rel_plays, first_times, fits = analyse_history_csv(history_file, excludes)
 
 start = listening_data.index.min()
 end = listening_data.index.max()
@@ -36,28 +36,24 @@ with col2:
             first_sel = filter_play_history(summary, "album")
             show_play_history(listening_data, summary, first_sel, "album")
         with tab4:
-            pass
+            show_all_history(listening_data, summary)
     # powerlaws 
-    #with mt2:
-    #    st.header("Power laws")
-    #    tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
-    #    with tab1:
-    #        show_power_laws(data["track_pl"], "track")
-    #    with tab2:
-    #        show_power_laws(data["artist_pl"], "artist")
-    #    with tab3:
-    #        show_power_laws(data["album_pl"], "album")
-        #with tab4:
-        #    show_power_law_summaries(song_power_laws_df, "track")
-        #    show_power_law_summaries(album_power_laws_df, "album")
-        #    show_power_law_summaries(artist_power_laws_df, "artist")
+    with mt2:
+        st.header("Power laws")
+        tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+        with tab1:
+            show_power_laws(fits["track"],summary, "track")
+        with tab2:
+            show_power_laws(fits["artist"],summary, "artist")
+        with tab3:
+            show_power_laws(fits["album"],summary, "album")
     # old vs new
-    #with mt3:
-    #    st.header("Old vs new")
-    #    tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
-    #    with tab1:
-    #        show_novelties_in_time(data["track_novelty"], "track")
-    #    with tab2:
-    #        show_novelties_in_time(data["artist_novelty"], "artist")
-    #    with tab3:
-    #        show_novelties_in_time(data["album_novelty"], "album")
+    with mt3:
+        st.header("Old vs new")
+        tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+        with tab1:
+            show_novelties_in_time(novelty, "track")
+        with tab2:
+            show_novelties_in_time(novelty, "artist")
+        with tab3:
+            show_novelties_in_time(novelty, "album")

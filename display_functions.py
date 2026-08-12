@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 from plot_functions import *
-from plot_functions_pt import *
 
 def filter_play_history(df_summary, display_item):
     """
@@ -121,11 +120,19 @@ def show_play_history(df_history, df_summary, filter_sel, display_item):
             plays = plays.reindex(columns = full_index, fill_value=0)
         # relative time filtering
         elif options["type"] == "rel":
-            first_listen = filtered.groupby(col).apply(lambda x: x.index.min())
+            # copy the filtered dataframe
             plays = filtered.copy()
+            # extract the first listen for each item in col
+            first_listen = filtered.groupby(col).apply(lambda x: x.index.min())
+            # write first listen as a new column
             plays["first_listen"] = plays[col].map(first_listen)
+            # compute years elapsed since first listen and write as a new column
             plays["years_since_first_listen"] = (plays.index - plays["first_listen"]).dt.days // 365
+            # aggregate the number of plays in each year since first listen
             plays = plays.groupby([col,"years_since_first_listen"]).size()
+            # reindex within each item to fill in missing zeros within the range we have listening data for
+            # NOT adding extra zeros at the end
+            # finally unstack to get a dataframe where the index is the item and the columns are the years since first listen
             plays = plays.groupby(level=0).apply(
                     lambda x: x.droplevel(0).reindex(range(x.index.get_level_values(1).max()+1), fill_value=0)
             ).unstack("years_since_first_listen")
@@ -153,6 +160,124 @@ def show_play_history(df_history, df_summary, filter_sel, display_item):
             ).unstack("datetime_utc")
         fig = plot_play_histories(plays, options)
         st.pyplot(fig,width='stretch')
+
+def show_all_history(df, summary_df):
+    
+    start, end = st.slider("Date range", df.index.min().to_pydatetime(), df.index.max().to_pydatetime(), value=( df.index.min().to_pydatetime(), df.index.max().to_pydatetime()) )
+
+    plot_options = {
+        "Calendar years": {
+        "type": "cal",
+         "period": "YS",   
+         "cumulative": False
+         },
+        "Calendar years (cumulative)": {
+        "type": "cal",
+         "period": "YS",   
+         "cumulative": True
+         },
+        "Calendar months": {
+        "type": "cal",
+         "period": "ME",   
+         "cumulative": False
+         },
+        "Calendar months (cumulative)": {
+        "type": "cal",
+         "period": "ME",   
+         "cumulative": True
+         },
+        "Calendar days": {
+        "type": "cal",
+         "period": "D",   
+         "cumulative": False
+         },
+        "Calendar days (cumulative)": {
+        "type": "cal",
+         "period": "D",   
+         "cumulative": True
+         },
+        "Months aggregated": {
+         "type": "agg",
+         "agg_period": "month",   
+         "cumulative": False
+         },
+        "Days aggregated": {
+         "type": "agg",
+         "agg_period": "weekday",   
+         "cumulative": False
+         },
+        "Hour aggregated (timezone not dealt with)": {
+         "type": "agg",
+         "agg_period": "hour",   
+         "cumulative": False
+         },
+        "Day and hour aggregated (timezone not dealt with)": {
+         "type": "agg",
+         "agg_period": "day and hour",   
+         "cumulative": False
+         }
+    }
+
+    select_plot_type = st.selectbox(
+                        "Time range",
+                        plot_options.keys(),
+                        key = f"everything_type_select")
+    options = plot_options[select_plot_type]
+
+    if select_plot_type:
+        if options["type"] == "cal":
+            fig = plot_time_data(df, options["period"], start, end, options["cumulative"])
+        # aggregations
+        elif options["type"] == "agg":
+            agg_period = options["agg_period"]
+            fig = plot_time_agg(df, agg_period, start, end)
+        st.pyplot(fig,width='stretch')
+        
+########################################################################
+
+def show_power_laws(df, df_summary, display_item):
+    """
+    allows selection and display of power law graphs
+    """
+    exponents = df["param_1"]
+
+    sliders = []
+    param_name = ["Coefficient", "Exponent"]
+    for k in range(2):
+        param = df[f"param_{k}"]    
+        min_param = min(param)
+        max_param = max(param)
+        sliders.append( st.slider(param_name[k], min_param, max_param, (min_param, max_param), key=f"{display_item}_PL_slider_{k}") )
+
+    filter_df = df[ (df["param_0"] >= sliders[0][0] ) & (df["param_0"] <= sliders[0][1]) &  (df["param_1"] >= sliders[1][0] ) & (df["param_1"] <= sliders[1][1]) ] 
+
+    selection = st.multiselect(
+                f"{display_item.capitalize()} ({len(filter_df)} options)",
+                filter_df.index,
+                format_func = lambda x : format_item(x,df_summary[display_item]),
+                key = f"{display_item}_select_PL")
+
+    fig_ad = plot_amplitudes_decays_selection(filter_df, selection)
+    st.pyplot(fig_ad)
+    if selection:
+        fig = plot_fit_multi(filter_df, selection, power_law)
+        st.pyplot(fig)
+
+
+########################################################################
+def show_novelties_in_time(data, display_item):
+    """
+    displays graphs of old vs new plays by year
+    """
+    df = data[display_item]
+    figs= plot_novelties_in_time(df)
+
+    st.subheader(f"Number of distinct old vs new {display_item}s played")
+    st.pyplot(figs["items"])
+    st.pyplot(figs["items_ratio"])
+    st.subheader(f"Total plays of old vs new {display_item}s")
+    st.pyplot(figs["plays"])
+    st.pyplot(figs["plays_ratio"])
 
 
 def format_item(item, top_df):

@@ -57,49 +57,156 @@ def analyse_history_csv(history_file, excludes):
     summary_data["album"] = summarise_playcount(listening_history, ["album","artist"])
     summary_data["track"] = summarise_playcount(listening_history, ["track","artist"])
 
-    return listening_history, summary_data
+    novelty_data = {}
+    novelty_data["track"] = novelty_in_time( "year", ["track", "artist"], listening_history)
+    novelty_data["album"]= novelty_in_time( "year", ["album", "artist"], listening_history)
+    novelty_data["artist"] = novelty_in_time( "year", "artist", listening_history)
+
+    relative_plays, first_times = {}, {}
+    # this is overkill as I don't intend to use any except a few of these
+    relative_plays["track"], first_times["track"] = relative_listens(listening_history, "track_artist")
+    relative_plays["album"], first_times["album"] = relative_listens(listening_history, "album_artist")
+    relative_plays["artist"], first_times["artist"] = relative_listens(listening_history, "artist")
     
-    data = {}
+    relative_plays["track"] = relative_plays["track"].reindex(summary_data["track"].index)
+    relative_plays["album"] = relative_plays["album"].reindex(summary_data["album"].index)
+    relative_plays["artist"] = relative_plays["artist"].reindex(summary_data["artist"].index)
 
-    data["total_plays"] = len(listening_history)
+    fits = {}
+    fits["track"] = calculate_fit(relative_plays["track"], 250, power_law, shift_to_max = True)
+    fits["album"] = calculate_fit(relative_plays["album"] , 250, power_law)
+    fits["artist"] = calculate_fit(relative_plays["artist"], 250, power_law)
+    
+    return listening_history, summary_data, novelty_data, relative_plays, first_times, fits
+    
 
-    start_uts = min(listening_history["uts"])
-    end_uts = max(listening_history["uts"])
-
-    start = datetime.datetime.fromtimestamp(start_uts)
-    end = datetime.datetime.fromtimestamp(end_uts)
-
-    data["start"] = start
-    data["end"] = end 
-    #data["start_date"] = start.strftime("%Y-%m-%d")
-    #data["end_date"] = end.strftime("%Y-%m-%d")
-
-    num_months = (end.year - start.year) * 12 + (end.month - start.month) + 1
-
-    yi, yf = min(listening_history['year']), max(listening_history['year'])
-    data["calendar_axis"] = [str(x)[2:] for x in range(yi, yf+1)]
-    data["monthly_axis"] = [x for x in range(num_months)]
-
-    # group uts plays as a list organised by track/artist
-    data["track_plays"] = grouped_by_plays(listening_history, ["track","artist"])
-    data["album_plays"] = grouped_by_plays(listening_history, ["album","artist"])
-    data["artist_plays"] = grouped_by_plays(listening_history, ["artist"])
-    data["everything"] = all_plays(listening_history)
-
-    data["track_novelty"] = novelty_in_time( "year", ["track", "artist"], listening_history)
-    data["album_novelty"] = novelty_in_time( "year", ["album", "artist"], listening_history)
-    data["artist_novelty"] = novelty_in_time( "year", "artist", listening_history)
-
-    data["track_pl"] = calculate_fit(data["track_plays"], 250, power_law, shift_to_max = True)
-    data["album_pl"] = calculate_fit(data["album_plays"] , 250, power_law)
-    data["artist_pl"] = calculate_fit(data["artist_plays"], 250, power_law)
-
-    print("\nDone")
-    return data
-
-
+@st.cache_data
 def summarise_playcount(df, grouping):
     """
     returns playcount summary grouped by grouping = track-artist, artist, album-artist, etc
     """
     return df.groupby(grouping).size().rename("total_plays").sort_values(ascending=False)
+
+def relative_listens(df, col):
+    """
+    pass a dataframe and return the yearly plays
+    """
+    # copy the filtered dataframe
+    plays = df.copy()
+    # extract the first listen for each item in col
+    first_listen = df.groupby(col).apply(lambda x: x.index.min())
+    # write first listen as a new column
+    plays["first_listen"] = plays[col].map(first_listen)
+
+    all_first_listens = plays["first_listen"].unique()
+    
+    # compute years elapsed since first listen and write as a new column
+    plays["years_since_first_listen"] = (plays.index - plays["first_listen"]).dt.days // 365
+    # aggregate the number of plays in each year since first listen
+    plays = plays.groupby([col,"years_since_first_listen"]).size()
+    # reindex within each item to fill in missing zeros within the range we have listening data for
+    # NOT adding extra zeros at the end
+    # finally unstack to get a dataframe where the index is the item and the columns are the years since first listen
+    plays = plays.groupby(level=0).apply(
+            lambda x: x.droplevel(0).reindex(range(x.index.get_level_values(1).max()+1), fill_value=0)
+    ).unstack("years_since_first_listen")
+    return plays, all_first_listens
+
+def get_fit(y_data, fit_function, shift_to_max = False):
+    """
+    fits the function fit_function to the data y_data
+    viewed as a function of timesteps [1,2,3,...]
+    optionally, start the fit from the max value of y_data
+    returns the fit parameters and the shift if possible
+    otherwise returns None
+    """   
+    if len(y_data) == 0:
+        return None
+
+    shift = 0 
+    if shift_to_max:
+        while y_data[0] <  max(y_data):
+            shift += 1
+            y_data =  y_data[1:]
+    #if shift:
+    #    print("shifted to:")
+    #    print(y_data, "\n")
+        
+    if len(y_data)>1:
+        try:
+            x_data = [float(y) for y in range(1,len(y_data)+1)]
+            popt, pcov = curve_fit(fit_function, x_data, y_data, p0=[max(y_data),2])
+            perr = np.sqrt(np.diag(pcov))
+            return (*popt, shift)
+        except (RuntimeError, TypeError, ValueError):
+            print ("Error:", y_data)
+            return None
+    else:
+        return None
+
+def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
+    """
+    takes the first Ntop entries of dataframe df
+    and fits the function fit_function to the the relatively yearly plays of each entry
+    where fitting is not possible, the entries are dropped and an error message is logged to the terminal
+    returns the new dataframe with fit information
+    optionally, apply shift to fit only starting with max value of relatively yearly plays
+    """
+    top_df = df.head(Ntop)
+    result = top_df.apply(lambda row: get_fit(row.dropna().tolist(), fit_function, shift_to_max), axis=1)
+    names = [f"param_{i}" for i in range(len(result.iloc[0])-1)] + ["shift"]
+    top_df[names] = pd.DataFrame(result.tolist(), index=top_df.index)
+
+    # drop cases where fitting is not possible
+    # alternatively: keep them as null and don't drop them in st power laws tab selectbox
+    # this would allow the same df to be used for both play histories and power laws
+    if len( top_df[ top_df["shift"].isna() ] ) > 0:
+        print("\nUnable to make a fit for the following:")
+        print( top_df[ top_df["shift"].isna() ])
+        print("\n")    
+        top_df = top_df[ ~top_df["shift"].isna() ]
+    return top_df
+
+def novelty_in_time( time_grouping, item_grouping, history_df):
+    """
+    accumulate a record of novel vs old listens of item_grouping
+    per time interval time_grouping
+    """
+    stats = []
+    already_listened = set()
+
+    groupings = {
+    "year": history_df.index.year,
+    "month": [history_df.index.year, history_df.index.month]
+    }
+    
+    dfy = history_df.groupby(groupings[time_grouping])[item_grouping]
+    
+    for time, time_data in dfy:
+        new_items, old_items = 0,0
+        new_plays, old_plays = 0,0
+        time_counts = time_data.value_counts()
+        for item, count in time_counts.items():
+            if item not in already_listened:
+                already_listened.add(item)
+                new_plays +=  count
+                new_items += 1
+            else:
+                old_plays += count
+                old_items += 1
+        stats.append( 
+        {
+        "time": time, "new_items": new_items, "old_items": old_items,
+            "new_plays": new_plays, "old_plays": old_plays
+        }
+        )
+    
+    stats_df = pd.DataFrame(stats)
+    
+    stats_df["new_items_ratio"] = stats_df["new_items"]/(stats_df["new_items"]+stats_df["old_items"])
+    stats_df["old_items_ratio"] = stats_df["old_items"]/(stats_df["new_items"]+stats_df["old_items"])
+    
+    stats_df["new_plays_ratio"] = stats_df["new_plays"]/(stats_df["new_plays"]+stats_df["old_plays"])
+    stats_df["old_plays_ratio"] = stats_df["old_plays"]/(stats_df["new_plays"]+stats_df["old_plays"])
+    
+    return stats_df
