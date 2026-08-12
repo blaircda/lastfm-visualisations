@@ -28,7 +28,7 @@ def multisel_items(filter_sel, df_summary, display_item, key, max_sels=None):
     sel = st.multiselect(
     f"{display_item.capitalize()} ({len(filter_sel)} options)",
     filter_sel.index,
-    default = filter_sel.index[0:9],
+    default = filter_sel.index[0:10],
     format_func = lambda x : format_item(x,df_summary[display_item]),
     max_selections = max_sels,
     key = f"{display_item}_select_{key}")
@@ -37,12 +37,7 @@ def multisel_items(filter_sel, df_summary, display_item, key, max_sels=None):
 
 def show_play_history(df_history, df_summary, filter_sel, display_item):
 
-    selection = st.multiselect(
-                f"{display_item.capitalize()} ({len(filter_sel)} options)",
-                filter_sel.index,
-                format_func = lambda x : format_item(x,df_summary[display_item]),
-                key = f"{display_item}_select")
-                
+    selection = multisel_items(filter_sel, df_summary, display_item, key=f"{display_item}_select", max_sels = 1000)              
     #st.write(f"{len(selection)} selected of {len(filter_df)}")
 
     plot_options = {
