@@ -8,16 +8,18 @@ col1, col2, col3 = st.columns([0.15,0.7,0.15])
 history_file = "recenttracks-antiselfdual-1737987394.csv"
 excludes = ["Chris Blair", "Super Simple Songs"]
 
-data = analyse_history_csv(history_file, excludes)
+listening_data, summary, novelty = analyse_history_csv(history_file, excludes)
+    
+start = listening_data.index.min()
+end = listening_data.index.max()
+total_plays = len(listening_data)
 
 with col2:
     st.title("LastFM visualisations")
 
     st.write("Data: csv download via https://mainstream.ghan.nl/export.html")
-    st.write(f"Timespan: {data["start"].strftime("%Y-%m-%d")} to {data["end"].strftime("%Y-%m-%d")}. Total plays: {data["total_plays"]}")
-    #st.write(f"Total artists: {total_plays}")
-    #st.write(f"Total albums: {total_plays}")
-    #st.write(f"Total tracks: {total_plays}")
+    st.write(f"Timespan: {start.strftime("%Y-%m-%d")} to {end.strftime("%Y-%m-%d")}. Total plays: {total_plays}")
+
 
     mt1, mt2, mt3 = st.tabs(["Play histories", "Power laws", "Old vs new"])
     # bare play histories
@@ -25,34 +27,46 @@ with col2:
         st.header("Play histories")
         tab1, tab2, tab3, tab4 = st.tabs(["Tracks", "Artists", "Albums", "Everything"])
         with tab1:
-            show_play_history(data["track_plays"], "track", data["calendar_axis"],data["monthly_axis"])
+            first_sel = filter_play_history(summary, "track", key="ph")
+            show_play_history(listening_data, summary, first_sel, "track")
         with tab2:
-            show_play_history(data["artist_plays"], "artist",  data["calendar_axis"],data["monthly_axis"])
+            first_sel = filter_play_history(summary, "artist", key="ph")
+            show_play_history(listening_data, summary, first_sel, "artist")
         with tab3:
-            show_play_history(data["album_plays"], "album",  data["calendar_axis"],data["monthly_axis"])
+            first_sel = filter_play_history(summary, "album", key="ph")
+            show_play_history(listening_data, summary, first_sel, "album")
         with tab4:
-            show_everything_history(data["everything"], "everything",  data["calendar_axis"],data["monthly_axis"])
+            show_all_history(listening_data, summary)
     # powerlaws 
     with mt2:
         st.header("Power laws")
         tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
         with tab1:
-            show_power_laws(data["track_pl"], "track")
+            with st.expander("Filter tracks to include"):
+                first_sel = filter_play_history(summary, "track", key="pl")
+                second_sel = multisel_items(first_sel, summary, "track", key = "pl_second", max_sels=250)
+            if second_sel:
+                show_power_laws_any(listening_data, summary, second_sel, "track")
         with tab2:
-            show_power_laws(data["artist_pl"], "artist")
+            with st.expander("Filter artists to include"):
+                first_sel = filter_play_history(summary, "artist", key="pl")
+                second_sel = multisel_items(first_sel, summary, "artist", key = "pl_second", max_sels=250)
+            if second_sel:
+                show_power_laws_any(listening_data,summary, second_sel, "artist")
         with tab3:
-            show_power_laws(data["album_pl"], "album")
-        #with tab4:
-        #    show_power_law_summaries(song_power_laws_df, "track")
-        #    show_power_law_summaries(album_power_laws_df, "album")
-        #    show_power_law_summaries(artist_power_laws_df, "artist")
+            with st.expander("Filter albums to include"):
+                first_sel = filter_play_history(summary, "album", key="pl")
+                second_sel = multisel_items(first_sel, summary, "album", key = "pl_second", max_sels=250)
+            if second_sel:
+                show_power_laws_any(listening_data,summary, second_sel, "album")
+
     # old vs new
     with mt3:
         st.header("Old vs new")
         tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
         with tab1:
-            show_novelties_in_time(data["track_novelty"], "track")
+            show_novelties_in_time(novelty, "track")
         with tab2:
-            show_novelties_in_time(data["artist_novelty"], "artist")
+            show_novelties_in_time(novelty, "artist")
         with tab3:
-            show_novelties_in_time(data["album_novelty"], "album")
+            show_novelties_in_time(novelty, "album")
