@@ -1,25 +1,38 @@
 import pandas as pd
 import streamlit as st
 from plot_functions import *
+from organise_data import relative_listens, calculate_fit
 
-def filter_play_history(df_summary, display_item):
+def filter_play_history(df_summary, display_item, key):
     """
     """
     df = df_summary[display_item]
     min_ranking = 1
     max_ranking = len(df)
-    ranking = st.slider("Ranking", min_ranking, max_ranking, (1, 50), key = f"{display_item}_ranking_slider")
+    ranking = st.slider("Ranking", min_ranking, max_ranking, (1, 50), key = f"{display_item}_ranking_slider_{key}")
     top_df = df.iloc[ranking[0]-1:ranking[1]]
 
     min_total_plays = min(top_df)
     max_total_plays = max(top_df)
 
     if min_total_plays != max_total_plays:
-        total = st.slider("Total playcount", min_value = min_total_plays,  max_value = max_total_plays, value = ( min_total_plays, max_total_plays), key = f"{display_item}_total_play_slider")
+        total = st.slider("Total playcount", min_value = min_total_plays,  max_value = max_total_plays, value = ( min_total_plays, max_total_plays), key = f"{display_item}_total_play_slider_{key}")
         sel = top_df[ (top_df >= total[0] ) & (top_df <= total[1]) ]
     else:
         st.write(f"Total playcount: {min_total_plays}")
         sel = top_df
+    return sel
+
+def multisel_items(filter_sel, df_summary, display_item, key, max_sels=None):
+    
+    sel = st.multiselect(
+    f"{display_item.capitalize()} ({len(filter_sel)} options)",
+    filter_sel.index,
+    default = filter_sel.index[0:9],
+    format_func = lambda x : format_item(x,df_summary[display_item]),
+    max_selections = max_sels,
+    key = f"{display_item}_select_{key}")
+
     return sel
 
 def show_play_history(df_history, df_summary, filter_sel, display_item):
@@ -104,63 +117,64 @@ def show_play_history(df_history, df_summary, filter_sel, display_item):
     if selection:
         if display_item == "artist":
             grouping = ["artist"]
-            col = "artist"
-            mask = df_history["artist"].isin(selection)
+            filter_col = "artist"
+            make_multi = None
         else:
             grouping = [display_item, "artist"]
-            col = display_item+"_artist"
-            mask = df_history[col].isin(selection)
-
+            filter_col = display_item+"_artist"
+            make_multi = grouping
+            
+        mask = df_history[filter_col].isin(selection)
         filtered = df_history[mask]
 
         # calendar time filtering
         if options["type"] == "cal":
-            full_index = df_history.resample(options["period"]).size().index
-            plays = filtered.groupby(col).resample(options["period"]).size().unstack(-1, fill_value=0)
-            plays = plays.reindex(columns = full_index, fill_value=0)
+            plays = calendar_listens(filtered, grouping, df_history, options["period"], make_multi)
         # relative time filtering
         elif options["type"] == "rel":
-            # copy the filtered dataframe
-            plays = filtered.copy()
-            # extract the first listen for each item in col
-            first_listen = filtered.groupby(col).apply(lambda x: x.index.min())
-            # write first listen as a new column
-            plays["first_listen"] = plays[col].map(first_listen)
-            # compute years elapsed since first listen and write as a new column
-            plays["years_since_first_listen"] = (plays.index - plays["first_listen"]).dt.days // 365
-            # aggregate the number of plays in each year since first listen
-            plays = plays.groupby([col,"years_since_first_listen"]).size()
-            # reindex within each item to fill in missing zeros within the range we have listening data for
-            # NOT adding extra zeros at the end
-            # finally unstack to get a dataframe where the index is the item and the columns are the years since first listen
-            plays = plays.groupby(level=0).apply(
-                    lambda x: x.droplevel(0).reindex(range(x.index.get_level_values(1).max()+1), fill_value=0)
-            ).unstack("years_since_first_listen")
+            plays, _ = relative_listens(filtered, filter_col, make_multi)
         # aggregations
         elif options["type"] == "agg":
-            agg_period = options["agg_period"]
-            times = {
-                "month": filtered.index.month,
-                "weekday": filtered.index.weekday,
-                "hour": filtered.index.hour,
-                "day and hour": filtered.index.weekday * 24 + filtered.index.hour
-            }
+            plays = aggregate_listens(filtered, filter_col, options["agg_period"], make_multi)
 
-            domains = {
-            "month": range(1, 13),
-            "weekday": range(7),
-            "hour": range(24),
-            "day and hour": range(168),
-            }
-
-            plays = filtered.groupby([col, times[agg_period]]).size()
-            # count zero values
-            plays = plays.groupby(level=0).apply(
-                    lambda x: x.droplevel(0).reindex(domains[agg_period], fill_value=0)
-            ).unstack("datetime_utc")
+         
         fig = plot_play_histories(plays, options)
         st.pyplot(fig,width='stretch')
+        plt.close(fig)
+        
+def calendar_listens(df, grouping, df_history, period, make_multi=None):
+    full_index = df_history.resample(period).size().index
+    plays = df.groupby(grouping).resample(period).size().unstack(-1, fill_value=0)
+    plays = plays.reindex(columns = full_index, fill_value=0)
+    #if make_multi:
+    #    plays.index = pd.MultiIndex.from_tuples(plays.index, names=make_multi)
+    return plays
 
+def aggregate_listens(df, filter_col, agg_period, make_multi):
+    times = {
+        "month": df.index.month,
+        "weekday": df.index.weekday,
+        "hour": df.index.hour,
+        "day and hour": df.index.weekday * 24 + df.index.hour
+    }
+
+    domains = {
+    "month": range(1, 13),
+    "weekday": range(7),
+    "hour": range(24),
+    "day and hour": range(168),
+    }
+
+    plays = df.groupby([filter_col, times[agg_period]]).size()
+    # count zero values
+    plays = plays.groupby(level=0).apply(
+            lambda x: x.droplevel(0).reindex(domains[agg_period], fill_value=0)
+    ).unstack(-1)
+
+    if make_multi:
+        plays.index = pd.MultiIndex.from_tuples(plays.index, names=make_multi)
+    return plays
+    
 def show_all_history(df, summary_df):
     
     start, end = st.slider("Date range", df.index.min().to_pydatetime(), df.index.max().to_pydatetime(), value=( df.index.min().to_pydatetime(), df.index.max().to_pydatetime()) )
@@ -235,10 +249,71 @@ def show_all_history(df, summary_df):
         
 ########################################################################
 
+def show_power_laws_any(df_history, df_summary, selection, display_item):
+    """
+    allows selection and display of power law graphs
+    """
+    #st.write(selection)
+    if display_item == "artist":
+        grouping = ["artist"]
+        filter_col = "artist"
+        make_multi = None
+    else:
+        grouping = [display_item, "artist"]
+        filter_col = display_item+"_artist"
+        make_multi = grouping
+
+    mask = df_history[filter_col].isin(selection)
+    filtered = df_history[mask]
+    rel, _ = relative_listens(filtered, filter_col, make_multi)
+    # rel now has a multiindex
+    
+    df, failures = calculate_fit(rel, None, power_law, shift_to_max = True)
+
+    if not failures.empty:
+        with st.expander("Unable to fit the following:"):
+            for item in failures.index:
+                if isinstance(item, tuple):
+                    item = '-'.join(item)
+                st.write(item)
+
+    if not df.empty:
+        param_name = ["Coefficient", "Exponent"]
+        exponents = df["param_1"]
+        sliders = []
+        if len(df)>1:
+            for k in range(2):
+                param = df[f"param_{k}"]    
+                min_param = min(param)
+                max_param = max(param)
+                sliders.append( st.slider(param_name[k], min_param, max_param, (min_param, max_param), key=f"{display_item}_PL_slider_any_{k}") )
+            filter_df = df[ (df["param_0"] >= sliders[0][0] ) & (df["param_0"] <= sliders[0][1]) &  (df["param_1"] >= sliders[1][0] ) & (df["param_1"] <= sliders[1][1]) ]
+        else:
+            filter_df = df
+        sel = st.multiselect(
+                    f"See details for {display_item} ({len(filter_df)} options)",
+                    filter_df.index,
+                    format_func = lambda x : format_item(x,df_summary[display_item]),
+                    key = f"{display_item}_select_any_PL")
+
+        fig_ad = plot_amplitudes_decays_selection(filter_df, sel)
+        
+        st.pyplot(fig_ad)
+        plt.close(fig_ad)
+        if sel:
+            fig = plot_fit_multi(filter_df, sel, power_law)
+            st.pyplot(fig)
+            plt.close(fig)
+
+
+
+
 def show_power_laws(df, df_summary, display_item):
     """
     allows selection and display of power law graphs
     """
+    st.write(df)
+
     exponents = df["param_1"]
 
     sliders = []
@@ -251,18 +326,18 @@ def show_power_laws(df, df_summary, display_item):
 
     filter_df = df[ (df["param_0"] >= sliders[0][0] ) & (df["param_0"] <= sliders[0][1]) &  (df["param_1"] >= sliders[1][0] ) & (df["param_1"] <= sliders[1][1]) ] 
 
+
     selection = st.multiselect(
                 f"{display_item.capitalize()} ({len(filter_df)} options)",
                 filter_df.index,
                 format_func = lambda x : format_item(x,df_summary[display_item]),
                 key = f"{display_item}_select_PL")
-
+    st.write(selection)
     fig_ad = plot_amplitudes_decays_selection(filter_df, selection)
     st.pyplot(fig_ad)
     if selection:
         fig = plot_fit_multi(filter_df, selection, power_law)
         st.pyplot(fig)
-
 
 ########################################################################
 def show_novelties_in_time(data, display_item):

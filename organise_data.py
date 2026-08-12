@@ -62,22 +62,24 @@ def analyse_history_csv(history_file, excludes):
     novelty_data["album"]= novelty_in_time( "year", ["album", "artist"], listening_history)
     novelty_data["artist"] = novelty_in_time( "year", "artist", listening_history)
 
+    return listening_history, summary_data, novelty_data
+
     relative_plays, first_times = {}, {}
     # this is overkill as I don't intend to use any except a few of these
-    relative_plays["track"], first_times["track"] = relative_listens(listening_history, "track_artist")
-    relative_plays["album"], first_times["album"] = relative_listens(listening_history, "album_artist")
-    relative_plays["artist"], first_times["artist"] = relative_listens(listening_history, "artist")
+    #relative_plays["track"], first_times["track"] = relative_listens(listening_history, "track_artist")
+    #relative_plays["album"], first_times["album"] = relative_listens(listening_history, "album_artist")
+    #relative_plays["artist"], first_times["artist"] = relative_listens(listening_history, "artist")
     
-    relative_plays["track"] = relative_plays["track"].reindex(summary_data["track"].index)
-    relative_plays["album"] = relative_plays["album"].reindex(summary_data["album"].index)
-    relative_plays["artist"] = relative_plays["artist"].reindex(summary_data["artist"].index)
+    #relative_plays["track"] = relative_plays["track"].reindex(summary_data["track"].index)
+    #relative_plays["album"] = relative_plays["album"].reindex(summary_data["album"].index)
+    #relative_plays["artist"] = relative_plays["artist"].reindex(summary_data["artist"].index)
 
-    fits = {}
-    fits["track"] = calculate_fit(relative_plays["track"], 250, power_law, shift_to_max = True)
-    fits["album"] = calculate_fit(relative_plays["album"] , 250, power_law)
-    fits["artist"] = calculate_fit(relative_plays["artist"], 250, power_law)
+    #fits = {}
+    #fits["track"] = calculate_fit(relative_plays["track"], 250, power_law, shift_to_max = True)
+    #fits["album"] = calculate_fit(relative_plays["album"] , 250, power_law)
+    #fits["artist"] = calculate_fit(relative_plays["artist"], 250, power_law)
     
-    return listening_history, summary_data, novelty_data, relative_plays, first_times, fits
+    #return listening_history, summary_data, novelty_data, relative_plays, first_times, fits
     
 
 @st.cache_data
@@ -87,7 +89,7 @@ def summarise_playcount(df, grouping):
     """
     return df.groupby(grouping).size().rename("total_plays").sort_values(ascending=False)
 
-def relative_listens(df, col):
+def relative_listens_col(df, col):
     """
     pass a dataframe and return the yearly plays
     """
@@ -112,6 +114,35 @@ def relative_listens(df, col):
     ).unstack("years_since_first_listen")
     return plays, all_first_listens
 
+def relative_listens(df, grouping_col, make_multi=None):
+    """
+    pass a dataframe and return the yearly plays
+    """
+    # copy the filtered dataframe
+    plays = df.copy()
+    # extract the first listen for each item in grouping_col
+    first_listen = df.groupby(grouping_col).apply(lambda x: x.index.min())
+    # write first listen as a new column
+    plays["first_listen"] = plays[grouping_col].map(first_listen)
+
+    all_first_listens = plays["first_listen"].unique()
+    
+    # compute years elapsed since first listen and write as a new column
+    plays["years_since_first_listen"] = (plays.index - plays["first_listen"]).dt.days // 365
+    # aggregate the number of plays in each year since first listen
+    plays = plays.groupby([grouping_col,"years_since_first_listen"]).size()
+    # reindex within each item to fill in missing zeros within the range we have listening data for
+    # NOT adding extra zeros at the end
+    # finally unstack to get a dataframe where the index is the item and the columns are the years since first listen
+    plays = plays.groupby(level=0).apply(
+            lambda x: x.droplevel(0).reindex(range(x.index.get_level_values(1).max()+1), fill_value=0)
+    ).unstack("years_since_first_listen")
+    
+    if make_multi:
+        plays.index = pd.MultiIndex.from_tuples(plays.index, names=make_multi)
+    
+    return plays, all_first_listens
+
 def get_fit(y_data, fit_function, shift_to_max = False):
     """
     fits the function fit_function to the data y_data
@@ -122,15 +153,15 @@ def get_fit(y_data, fit_function, shift_to_max = False):
     """   
     if len(y_data) == 0:
         return None
-
+    print(y_data)
     shift = 0 
     if shift_to_max:
         while y_data[0] <  max(y_data):
             shift += 1
             y_data =  y_data[1:]
-    #if shift:
-    #    print("shifted to:")
-    #    print(y_data, "\n")
+    if shift:
+        print("shifted to:")
+        print(y_data, "\n")
         
     if len(y_data)>1:
         try:
@@ -142,6 +173,7 @@ def get_fit(y_data, fit_function, shift_to_max = False):
             print ("Error:", y_data)
             return None
     else:
+        print ("Error:", y_data)
         return None
 
 def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
@@ -152,16 +184,34 @@ def calculate_fit(df, Ntop, fit_function, shift_to_max = False):
     returns the new dataframe with fit information
     optionally, apply shift to fit only starting with max value of relatively yearly plays
     """
-    top_df = df.head(Ntop)
+    if Ntop:
+        top_df = df.head(Ntop)
+    else:
+        top_df = df
     result = top_df.apply(lambda row: get_fit(row.dropna().tolist(), fit_function, shift_to_max), axis=1)
-    names = [f"param_{i}" for i in range(len(result.iloc[0])-1)] + ["shift"]
-    top_df[names] = pd.DataFrame(result.tolist(), index=top_df.index)
+
+    valid = result.notna()
+
+    failures = top_df[~valid]
+    top_df = top_df[valid]
+    result = result[valid]
+
+    if not top_df.empty:
+        names = [f"param_{i}" for i in range(len(result.iloc[0])-1)] + ["shift"]
+        top_df[names] = pd.DataFrame(result.tolist(), index=top_df.index)
+        if not failures.empty:
+            print("\nUnable to make a fit for the following:")
+            print(failures)
+    else:
+        print("\nUnable to make any fits!")
+        print(failures)
+
+    return top_df, failures
 
     # drop cases where fitting is not possible
-    # alternatively: keep them as null and don't drop them in st power laws tab selectbox
-    # this would allow the same df to be used for both play histories and power laws
     if len( top_df[ top_df["shift"].isna() ] ) > 0:
         print("\nUnable to make a fit for the following:")
+        print( top_df[ top_df["shift"].isna()].index )
         print( top_df[ top_df["shift"].isna() ])
         print("\n")    
         top_df = top_df[ ~top_df["shift"].isna() ]

@@ -25,9 +25,6 @@ def plot_play_histories(df, options):
 
     if isinstance(df.index, pd.MultiIndex):
         data.index = [f"{item} – {artist}" for item, artist in df.index]
-    elif type(df.index[0]) == tuple:
-        data.index = [f"{item} – {artist}" for item, artist in df.index]
-
 
     if "agg_period" in options.keys():
         agg = options["agg_period"]
@@ -50,8 +47,6 @@ def plot_play_histories(df, options):
         ax.set_xticks(ticks)
         ax.set_xticklabels(tick_labels)
 
-
-    #data.T.plot(ax=ax, marker="o")
     ax.plot(data.columns, data.T, marker="o")
     ax.legend(
         data.index,
@@ -60,30 +55,8 @@ def plot_play_histories(df, options):
         ncols=4
     )
     ax.margins(x=0.05)
-    #ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncols=4)
-
     return fig
     
-    for item in items:
-        x = df.columns
-        
-        if options["cumulative"] == True:
-            y = df.loc[item].cumsum()
-            ax.set_ylabel("Plays (cumulative)")
-        else:
-            y = df.loc[item]
-            ax.set_ylabel("Plays")
-
-        if type(item) == tuple:
-            lbl = ' - '.join(item)
-        else:
-            lbl = item
-
-        ax.plot(x,y,marker="o",label=lbl)
-        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncols=4)
-        
-    return fig
-
 def plot_time_data(df, freq, start, end, cumulative = False):
     label = {
         "YS": "year",
@@ -177,6 +150,50 @@ def plot_fit_multi(df, items, fit_function):
     param_cols = [c for c in df.columns if isinstance(c, str) and c.startswith("param_")]
 
     for item in items:
+        if isinstance(item, tuple):
+            lbl = ' - '.join(item)
+        else:
+            lbl = item
+
+        y_data = df.loc[item, year_cols].dropna()
+
+        fit_params = df.loc[item, param_cols].to_list()
+        shift = df.loc[item,"shift"]
+        
+        x_data = [float(y) for y in range(1,len(y_data)+1)]
+
+        x_model = np.linspace(1+shift, len(y_data), 100)
+        y_model = fit_function(x_model-shift,*fit_params)
+            
+        if fit_function == power_law:
+            a = str(int(round(fit_params[0],0)))
+            b = str(round(fit_params[1],2))
+            lbl += f"\n{a} t**({b})"
+
+        ax.scatter(x_data, y_data)
+        ax.plot(x_model, y_model, label=lbl)
+
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.1),
+        ncols=4
+    )
+    return fig
+
+def plot_fit_multi_old(df, items, fit_function):
+    """
+    for each item in items, extracts the plays_yearly_relative data from df
+    and plots both this and the graph of fit_function fitted to that data
+    """
+    fig, ax = plt.subplots(layout="constrained")
+
+    ax.set_xlabel("Years")
+    ax.set_ylabel("Listens")
+    
+    year_cols = [c for c in df.columns if isinstance(c,int)]
+    param_cols = [c for c in df.columns if isinstance(c, str) and c.startswith("param_")]
+
+    for item in items:
         
         y_data = df.loc[item, year_cols].dropna()
         
@@ -207,6 +224,7 @@ def plot_fit_multi(df, items, fit_function):
         ncols=4
     )
     return fig
+
 
 def plot_fit(df, selection, fit_function):
     """
@@ -282,6 +300,7 @@ def plot_novelties_in_time( df ):
         figs[c+"_ratio"] = plot_novelty_in_time(df, "old_"+c+"_ratio", "new_"+c+"_ratio", type_label="fraction "+type_label, is_ratio=True) 
         
     return figs
+    
 def plot_amplitudes_decays(df):
     """
     for power law fits At^*(b)
@@ -323,7 +342,7 @@ def plot_amplitudes_decays_selection(df,items):
     yshift=0
     for item in items:
         A = df.loc[item,"param_0"]
-        b = df.loc[item, "param_1"]
+        b = df.loc[item,"param_1"]
         ax.plot([A],[b], marker="o")
         if type(item) == tuple:
             name = item[0]
