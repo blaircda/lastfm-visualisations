@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import datetime as datetime
 from plot_functions import *
 from organise_data import relative_listens, calculate_fit
 
@@ -138,7 +139,9 @@ def show_play_history(df_history, df_summary, filter_sel, display_item):
         plt.close(fig)
         
 def calendar_listens(df, grouping, df_history, period, make_multi=None):
-    full_index = df_history.resample(period).size().index
+    df = df.copy()
+    df = df.set_index("local_datetime")
+    full_index = df_history.set_index("local_datetime").resample(period).size().index
     plays = df.groupby(grouping).resample(period).size().unstack(-1, fill_value=0)
     plays = plays.reindex(columns = full_index, fill_value=0)
     #if make_multi:
@@ -146,6 +149,9 @@ def calendar_listens(df, grouping, df_history, period, make_multi=None):
     return plays
 
 def aggregate_listens(df, filter_col, agg_period, make_multi):
+    df = df.copy()
+    df = df.set_index("local_datetime")
+
     times = {
         "month": df.index.month,
         "weekday": df.index.weekday,
@@ -170,9 +176,36 @@ def aggregate_listens(df, filter_col, agg_period, make_multi):
         plays.index = pd.MultiIndex.from_tuples(plays.index, names=make_multi)
     return plays
     
-def show_all_history(df, summary_df):
+def show_all_history(df, summary_df, life_divisions):
     
-    start, end = st.slider("Date range", df.index.min().to_pydatetime(), df.index.max().to_pydatetime(), value=( df.index.min().to_pydatetime(), df.index.max().to_pydatetime()) )
+    df = df.set_index("local_datetime")
+    min_date = df.index.min().strftime("%Y-%m-%d")
+    max_date = df.index.max().strftime("%Y-%m-%d")
+    all_range = (min_date, max_date) 
+
+    if life_divisions is None:
+        dates =all_range
+    else:
+        life_divisions = {
+        k: (min_date if v[0] is None else v[0], max_date if v[1] is None else v[1]) for k,v in life_divisions.items() 
+        }
+        range_options = {
+            "All": all_range
+            } | life_divisions
+    
+        sel_range =st.selectbox(
+            "Life divisions",
+            range_options.keys(),
+            format_func = lambda x : f"{x}  ({range_options[x][0]} to  {range_options[x][1]})"
+        )
+        dates = range_options[sel_range]
+
+    sel_range_val = ( datetime.datetime.strptime(dates[0], '%Y-%m-%d'), datetime.datetime.strptime(dates[1], '%Y-%m-%d'))
+    
+    start, end = st.slider("Date range",
+        df.index.min().to_pydatetime(),
+        df.index.max().to_pydatetime(),
+        sel_range_val  )
 
     plot_options = {
         "Calendar years": {
@@ -210,17 +243,17 @@ def show_all_history(df, summary_df):
          "agg_period": "month",   
          "cumulative": False
          },
-        "Days aggregated": {
+        "Weekdays aggregated": {
          "type": "agg",
          "agg_period": "weekday",   
          "cumulative": False
          },
-        "Hour aggregated (timezone not dealt with)": {
+        "Hour aggregated": {
          "type": "agg",
          "agg_period": "hour",   
          "cumulative": False
          },
-        "Day and hour aggregated (timezone not dealt with)": {
+        "Weekday and hour aggregated": {
          "type": "agg",
          "agg_period": "day and hour",   
          "cumulative": False

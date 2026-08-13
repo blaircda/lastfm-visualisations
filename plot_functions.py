@@ -75,7 +75,6 @@ def plot_time_data(df, freq, start, end, cumulative = False):
     fig, ax = plt.subplots(figsize=(15, 10))
 
     df = df.loc[start:end]
-
     plays = df.resample(freq).size()
 
     if cumulative:
@@ -94,8 +93,9 @@ def plot_time_data(df, freq, start, end, cumulative = False):
     return fig
 
 def plot_time_agg(df, agg, start, end,):
-    
+
     df = df.loc[start:end]
+    #df = df.set_index("local_datetime")
 
     times = {
         "month": df.index.month,
@@ -125,7 +125,7 @@ def plot_time_agg(df, agg, start, end,):
     plays = plays.reindex(domains[agg], fill_value=0)    
     
     fig, ax = plt.subplots(figsize=(15, 10)) 
-    ax.plot(plays.index, plays.values, marker="o")
+    ax.bar(plays.index, plays.values)
 
     if agg == "day and hour":
         ticks = range(0, 168, 6)

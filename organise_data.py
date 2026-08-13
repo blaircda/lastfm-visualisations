@@ -14,8 +14,14 @@ def history_to_df(history_file, excludes):
     """
     df = pd.read_csv(history_file,usecols=["track","artist","album","uts"])
     df.drop_duplicates(inplace=True)
-    df = df[ ~df.artist.isin(excludes) ]
-    
+
+    if excludes["artist"] is not None:
+        df = df[ ~df.artist.isin(excludes["artist"]) ]
+    if excludes["track"] is not None:
+        df = df[ ~df.track.isin(excludes["track"]) ]
+    if excludes["album"] is not None:
+        df = df[ ~df.artist.isin(excludes["album"]) ]
+
     # remove remaster tags wrapped in brackets
     # e.g. " (2009 Remaster)" or " [2011 Remastered Version]"
     # [^(]* (instead of greedy .*) stops at the first ')'
@@ -43,20 +49,27 @@ def history_to_df(history_file, excludes):
     return df
 
 @st.cache_data
-def analyse_history_csv(history_file, excludes):
+def analyse_history_csv(history_file, excludes, whereabouts):
     """
-    takes csv file and processes it into various dataframes structured to contain interesting information
-    """
-
+    input:
+    history_file - csv file of listening
+    excludes - artists to exclude (to do: extend) 
+    whereabouts - timezone information
+    """        
+        
     print("\nAnalysing CSV file...............\n")
     
     listening_history = history_to_df(history_file, excludes)
 
+    if whereabouts is None:
+        listening_history["local_datetime"] = listening_history.index.tz_localize(None)
+    else:
+        listening_history = add_local_datetimes(listening_history, whereabouts)
+    
     summary_data = {}
     summary_data["artist"] = summarise_playcount(listening_history, "artist")
     summary_data["album"] = summarise_playcount(listening_history, ["album","artist"])
     summary_data["track"] = summarise_playcount(listening_history, ["track","artist"])
-
     novelty_data = {}
     novelty_data["track"] = novelty_in_time( "year", ["track", "artist"], listening_history)
     novelty_data["album"]= novelty_in_time( "year", ["album", "artist"], listening_history)
@@ -80,7 +93,37 @@ def analyse_history_csv(history_file, excludes):
     #fits["artist"] = calculate_fit(relative_plays["artist"], 250, power_law)
     
     #return listening_history, summary_data, novelty_data, relative_plays, first_times, fits
+
+@st.cache_data
+def add_local_datetimes(df, whereabouts):
+    idx = df.index
+    local = pd.Series(index=idx, dtype="datetime64[s]")
+
+    whereabouts = [
+        (
+            pd.Timestamp(start, tz="UTC") if start is not None else None,
+            pd.Timestamp(end, tz="UTC") if end is not None else None,
+            tz,
+        )
+        for start, end, tz in whereabouts
+    ]
     
+    whereabouts = sorted(whereabouts, key=lambda x: x[0] if x[0] is not None else pd.Timestamp.min.tz_localize("UTC"))
+
+    for start, end, tz in whereabouts:
+        if start is None:
+            mask = idx < end
+        elif end is None:
+            mask = idx >= start
+        else:
+            mask = (idx >= start) & (idx < end) 
+        local.loc[mask] = idx[mask].tz_convert(tz).tz_localize(None)
+
+    assert local.notna().all()
+
+    df = df.copy()
+    df["local_datetime"] = local
+    return df
 
 @st.cache_data
 def summarise_playcount(df, grouping):
@@ -191,6 +234,8 @@ def novelty_in_time( time_grouping, item_grouping, history_df):
     stats = []
     already_listened = set()
 
+    history_df = history_df.set_index("local_datetime")
+    
     groupings = {
     "year": history_df.index.year,
     "month": [history_df.index.year, history_df.index.month]

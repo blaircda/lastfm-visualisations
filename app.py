@@ -5,10 +5,28 @@ from organise_data import *
 st.set_page_config(layout="wide", page_title="LastFM visualisations")
 col1, col2, col3 = st.columns([0.15,0.7,0.15])
 
+# CUSTOMISABLE OPTIONS
 history_file = "recenttracks-antiselfdual-1737987394.csv"
-excludes = ["Chris Blair", "Super Simple Songs"]
+excludes= {
+    "artist": ["Chris Blair", "Super Simple Songs"],
+    "track": None,
+    "album": None
+}
+whereabouts = [
+    (None, "2015-08-22", "Europe/Dublin"),
+    ("2015-08-22", None, "Europe/Brussels"),
+]
+life_divisions = {
+        "Dublin": (None, "2010-10-01"),
+        "Cambridge": ("2010-10-01", "2015-08-22"),
+        "Brussels": ("2015-08-22", "2022-09-30"),
+        "Madrid": ("2022-01-10", None),
+        "COVID": ("2020-03-18", "2021-09-01"),
+        "Children": ("2021-09-01", None)
+}
 
-listening_data, summary, novelty = analyse_history_csv(history_file, excludes)
+
+listening_data, summary, novelty = analyse_history_csv(history_file, excludes, whereabouts)
     
 start = listening_data.index.min()
 end = listening_data.index.max()
@@ -36,7 +54,7 @@ with col2:
             first_sel = filter_play_history(summary, "album", key="ph")
             show_play_history(listening_data, summary, first_sel, "album")
         with tab4:
-            show_all_history(listening_data, summary)
+            show_all_history(listening_data, summary, life_divisions)
     # powerlaws 
     with mt2:
         st.header("Power laws")
