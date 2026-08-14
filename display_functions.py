@@ -92,12 +92,12 @@ def show_play_history(df_history, df_summary, filter_sel, display_item):
          "agg_period": "weekday",   
          "cumulative": False
          },
-        "Hour aggregated (timezone not dealt with)": {
+        "Hour aggregated": {
          "type": "agg",
          "agg_period": "hour",   
          "cumulative": False
          },
-        "Day and hour aggregated (timezone not dealt with)": {
+        "Day and hour aggregated": {
          "type": "agg",
          "agg_period": "day and hour",   
          "cumulative": False
