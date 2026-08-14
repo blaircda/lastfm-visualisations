@@ -178,13 +178,13 @@ def aggregate_listens(df, filter_col, agg_period, make_multi):
     
 def show_all_history(df, summary_df, life_divisions):
     
-    df = df.set_index("local_datetime")
+    df = df.set_index("local_datetime").sort_index()
     min_date = df.index.min().strftime("%Y-%m-%d")
     max_date = df.index.max().strftime("%Y-%m-%d")
     all_range = (min_date, max_date) 
 
     if life_divisions is None:
-        dates =all_range
+        dates = all_range
     else:
         life_divisions = {
         k: (min_date if v[0] is None else v[0], max_date if v[1] is None else v[1]) for k,v in life_divisions.items() 
