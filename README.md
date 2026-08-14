@@ -3,11 +3,11 @@ searching for structure in my music listening history
 
 running at https://lastfm-visualisations-antiselfdual.streamlit.app/
 
-## instructions:
+## instructions
 
 Download data from LastFM to CSV file via https://mainstream.ghan.nl/export.html
 
-In **config.py**:
+In **config.py**
 - specify csv file
 
 - specify artists, tracks, albums to exclude
@@ -24,7 +24,7 @@ Run app:
 
 - shows e.g. calendar yearly, monthly play history, aggregations by month, weekday, (local) hour
 
-- shows play history since first listen of particular item, and fit a power law plot
+- shows play history since first listen of particular items, fits power law plots to these
 
 - shows calendar year record of new vs old plays
 
