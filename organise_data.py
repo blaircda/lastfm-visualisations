@@ -10,11 +10,13 @@ def power_law(x,a,b):
 @st.cache_data
 def history_to_df(history_file, excludes):
     """
-    read csv file and perform some basic data cleanup
+    reads history_file
+    performs some basic data cleanup
     """
     df = pd.read_csv(history_file,usecols=["track","artist","album","uts"])
     df.drop_duplicates(inplace=True)
 
+    # drop artists, tracks, albums specified in excludes
     if excludes["artist"] is not None:
         df = df[ ~df.artist.isin(excludes["artist"]) ]
     if excludes["track"] is not None:
@@ -33,19 +35,16 @@ def history_to_df(history_file, excludes):
     # anchored to end of string ($)
     df[["track","album"]] = df[["track","album"]].replace(r' -.*[Rr]emaster.*$','',regex=True)
 
-    # add calendar data
-    df["datetime_utc"] = pd.to_datetime(df["uts"], unit="s", utc=True)
-    #df["year"] = df["datetime_utc"].dt.year
-    #df["month"] = df["datetime_utc"].dt.month
-    #df["day"] = df["datetime_utc"].dt.day
-    #df["weekday"] = df["datetime_utc"].dt.weekday
-    #df["hour"] = df["datetime_utc"].dt.hour
-
+    # useful to add columns combining track-artist and album-artist
+    # used for later filtering 
     df["track_artist"] = list(zip(df["track"], df["artist"]))
     df["album_artist"] = list(zip(df["album"], df["artist"]))
-    
+
+    # add calendar data
+    df["datetime_utc"] = pd.to_datetime(df["uts"], unit="s", utc=True)    
     df = df.set_index('datetime_utc')
     df = df.sort_index()
+    
     return df
 
 @st.cache_data
@@ -55,21 +54,29 @@ def analyse_history_csv(history_file, excludes, whereabouts):
     history_file - csv file of listening
     excludes - artists to exclude (to do: extend) 
     whereabouts - timezone information
+    returns:
+    listening_history - full listening history with timezone information in whereabouts added
+    summary_data - aggregated total playcounts for artist, tracks, albums
+    novelty_data - aggregated tracking of new vs old plays
     """        
         
-    print("\nAnalysing CSV file...............\n")
-    
+    print("\nAnalysing listening history CSV file...............\n")
+
+    # extract listening history from history_file
     listening_history = history_to_df(history_file, excludes)
 
+    # add local timezone information 
     if whereabouts is None:
         listening_history["local_datetime"] = listening_history.index.tz_localize(None)
     else:
         listening_history = add_local_datetimes(listening_history, whereabouts)
-    
+
+    # build summaries
     summary_data = {}
     summary_data["artist"] = summarise_playcount(listening_history, "artist")
     summary_data["album"] = summarise_playcount(listening_history, ["album","artist"])
     summary_data["track"] = summarise_playcount(listening_history, ["track","artist"])
+    # build novelty in time aggregations
     novelty_data = {}
     novelty_data["track"] = novelty_in_time( "year", ["track", "artist"], listening_history)
     novelty_data["album"]= novelty_in_time( "year", ["album", "artist"], listening_history)
@@ -96,9 +103,15 @@ def analyse_history_csv(history_file, excludes, whereabouts):
 
 @st.cache_data
 def add_local_datetimes(df, whereabouts):
+    """
+    takes a dataframe df whose index is a panda datetime in utc
+    and returns a copy of the df with a new column specify local_datetie
+    based on duration and timezone specified in whereabouts
+    """
     idx = df.index
     local = pd.Series(index=idx, dtype="datetime64[s]")
 
+    # convert whereabouts explicitly to datetime object localised in utc
     whereabouts = [
         (
             pd.Timestamp(start, tz="UTC") if start is not None else None,
@@ -107,9 +120,10 @@ def add_local_datetimes(df, whereabouts):
         )
         for start, end, tz in whereabouts
     ]
-    
+    # arrange whereabouts chronologically
     whereabouts = sorted(whereabouts, key=lambda x: x[0] if x[0] is not None else pd.Timestamp.min.tz_localize("UTC"))
 
+    # loop over timezone blocks in whereabouts and create local datetime object
     for start, end, tz in whereabouts:
         if start is None:
             mask = idx < end
@@ -119,8 +133,10 @@ def add_local_datetimes(df, whereabouts):
             mask = (idx >= start) & (idx < end) 
         local.loc[mask] = idx[mask].tz_convert(tz).tz_localize(None)
 
+    # check no gaps in the record
     assert local.notna().all()
 
+    # add local datetime to database and return
     df = df.copy()
     df["local_datetime"] = local
     return df
@@ -134,7 +150,9 @@ def summarise_playcount(df, grouping):
 
 def relative_listens(df, grouping_col, make_multi=None):
     """
-    pass a dataframe and return the yearly plays
+    for dataframe df and items specified by grouping_col
+    compute listening record since first listen of each item
+    aggregated by periods of 1 year = 365 days
     """
     # copy the filtered dataframe
     plays = df.copy()
@@ -143,10 +161,12 @@ def relative_listens(df, grouping_col, make_multi=None):
     # write first listen as a new column
     plays["first_listen"] = plays[grouping_col].map(first_listen)
 
+    # aggregate all moments when something is listened to first
+    # not yet used elsewhere
     all_first_listens = plays["first_listen"].unique()
     
     # compute years elapsed since first listen and write as a new column
-    plays["years_since_first_listen"] =  1+ (plays.index - plays["first_listen"]).dt.days // 365
+    plays["years_since_first_listen"] =  1 + (plays.index - plays["first_listen"]).dt.days // 365
     # aggregate the number of plays in each year since first listen
     plays = plays.groupby([grouping_col,"years_since_first_listen"]).size()
     # reindex within each item to fill in missing zeros within the range we have listening data for

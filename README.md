@@ -31,4 +31,6 @@ Run app:
 ## limitations
 - the download from LastFM includes MusicBrainz identifiers however with a large number of missing entries I did not use this in favour of just "track"-"artist", "album"-"artist". This means that I do not take into account missing album data, difference between album and live versions of tracks, and similar annoyances
 
+- timezone whereabouts uses UTC datetime directly, make more precise?
+
 - it's not a fully fledged app allowing other users to upload their music history/access from LastFM directly

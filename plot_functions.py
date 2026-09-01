@@ -8,7 +8,7 @@ import pandas as pd
 
 def plot_play_histories(df, options):
     """
-    for each item in items, extracts and plots data about item from df
+    plots df containing listening histories for different items
     dict options specifies which data and what type of graph
     """
     if isinstance(df, pd.Series):
@@ -26,7 +26,7 @@ def plot_play_histories(df, options):
     if isinstance(df.index, pd.MultiIndex):
         data.index = [f"{item} – {artist}" for item, artist in df.index]
 
-    if "agg_period" in options.keys():
+    if "agg_period" in options:
         agg = options["agg_period"]
         days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         hours_div = [0,6,12,18]
@@ -84,7 +84,6 @@ def plot_time_data(df, freq, start, end, cumulative = False):
         y_vals = plays
         ax.set_ylabel("Plays")
 
-        
     ax.plot(plays.index,y_vals, marker="o")
     ax.set_title(f"Plays per {label.get(freq, "time")}")
 

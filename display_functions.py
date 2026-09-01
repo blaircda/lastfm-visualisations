@@ -6,111 +6,159 @@ from organise_data import relative_listens, calculate_fit
 
 def filter_play_history(df_summary, display_item, key):
     """
+    controls the selection of items of type display_item (artist, track-artist, album-artist)
+    reading total playcount and ranking from df_summary
+    key is a str to ensure the streamlit inputs are uniquely identified
     """
     df = df_summary[display_item]
     min_ranking = 1
     max_ranking = len(df)
-    ranking = st.slider("Ranking", min_ranking, max_ranking, (1, 50), key = f"{display_item}_ranking_slider_{key}")
+    ranking = st.slider(
+        "Ranking",
+        min_value = min_ranking,
+        max_value = max_ranking,
+        value = (1, 50),
+        key = f"{display_item}_ranking_slider_{key}"
+    )
+
+    # first filter by ranking selected
     top_df = df.iloc[ranking[0]-1:ranking[1]]
 
+    # next filter by plays
     min_total_plays = min(top_df)
     max_total_plays = max(top_df)
 
     if min_total_plays != max_total_plays:
-        total = st.slider("Total playcount", min_value = min_total_plays,  max_value = max_total_plays, value = ( min_total_plays, max_total_plays), key = f"{display_item}_total_play_slider_{key}")
+        total = st.slider(
+            "Total playcount",
+            min_value = min_total_plays,
+            max_value = max_total_plays,
+            value = ( min_total_plays, max_total_plays),
+            key = f"{display_item}_total_play_slider_{key}"
+            )
         sel = top_df[ (top_df >= total[0] ) & (top_df <= total[1]) ]
     else:
+        # in case a unique ranking not a range has been selected cannot show a slider for playcount
         st.write(f"Total playcount: {min_total_plays}")
         sel = top_df
     return sel
 
 def multisel_items(filter_sel, df_summary, display_item, key, max_sels=None):
-    
+    """
+    defines a streamlit multiselect input
+    filter_sel: filtered dataframe based on previous choices
+    df_summary: contains information about total playcount
+    display_item: which of artist, track-artist, album_artist we are interested in
+    key: str to ensure the streamlit inputs are uniquely identified
+    max_sels: set to limit number of selections that can be made  
+    """
     sel = st.multiselect(
-    f"{display_item.capitalize()} ({len(filter_sel)} options)",
-    filter_sel.index,
-    default = filter_sel.index[0:10],
-    format_func = lambda x : format_item(x,df_summary[display_item]),
-    max_selections = max_sels,
-    key = f"{display_item}_select_{key}")
+        f"{display_item.capitalize()} ({len(filter_sel)} options)",
+        filter_sel.index,
+        default = filter_sel.index[0:10],
+        format_func = lambda x : format_item(x,df_summary[display_item]),
+        max_selections = max_sels,
+        key = f"{display_item}_select_{key}"
+        )
 
     return sel
 
-def show_play_history(df_history, df_summary, filter_sel, display_item):
+# predefined types of plots
+calendar_plot_options = {
+    "Calendar years": {
+    "type": "cal",
+     "period": "YS",   
+     "cumulative": False
+     },
+    "Calendar years (cumulative)": {
+    "type": "cal",
+     "period": "YS",   
+     "cumulative": True
+     },
+    "Calendar months": {
+    "type": "cal",
+     "period": "ME",   
+     "cumulative": False
+     },
+    "Calendar months (cumulative)": {
+    "type": "cal",
+     "period": "ME",   
+     "cumulative": True
+     },
+    "Calendar days": {
+    "type": "cal",
+     "period": "D",   
+     "cumulative": False
+     },
+    "Calendar days (cumulative)": {
+    "type": "cal",
+     "period": "D",   
+     "cumulative": True
+     }
+}
+relative_plot_options = {
+    "Years since first listen": {
+    "type": "rel",
+     #"period": "YS",   
+     "cumulative": False
+     },
+    "Years since first listen (cumulative)": {
+    "type": "rel",
+     #"period": "YS",   
+     "cumulative": True
+     }
+}
+aggregate_plot_options = {
+    "Months aggregated": {
+     "type": "agg",
+     "agg_period": "month",   
+     "cumulative": False
+     },
+    "Days aggregated": {
+     "type": "agg",
+     "agg_period": "weekday",   
+     "cumulative": False
+     },
+    "Hour aggregated": {
+     "type": "agg",
+     "agg_period": "hour",   
+     "cumulative": False
+     },
+    "Day and hour aggregated": {
+     "type": "agg",
+     "agg_period": "day and hour",   
+     "cumulative": False
+     }
+    }   
 
-    selection = multisel_items(filter_sel, df_summary, display_item, key=f"{display_item}_select", max_sels = 1000)              
+
+def show_play_history(df_history, df_summary, filter_sel, display_item):
+    """
+    controls final selection of previously filtered listening history of display_item for plotting
+    """
+
+    # multiselection of content of filter_sel
+    selection = multisel_items(
+        filter_sel,
+        df_summary,
+        display_item,
+        key=f"{display_item}_select",
+        max_sels = 1000)              
     #st.write(f"{len(selection)} selected of {len(filter_df)}")
 
-    plot_options = {
-        "Calendar years": {
-        "type": "cal",
-         "period": "YS",   
-         "cumulative": False
-         },
-        "Calendar years (cumulative)": {
-        "type": "cal",
-         "period": "YS",   
-         "cumulative": True
-         },
-        "Calendar months": {
-        "type": "cal",
-         "period": "ME",   
-         "cumulative": False
-         },
-        "Calendar months (cumulative)": {
-        "type": "cal",
-         "period": "ME",   
-         "cumulative": True
-         },
-        "Calendar days": {
-        "type": "cal",
-         "period": "D",   
-         "cumulative": False
-         },
-        "Calendar days (cumulative)": {
-        "type": "cal",
-         "period": "D",   
-         "cumulative": True
-         },
-        "Years since first listen": {
-        "type": "rel",
-         #"period": "YS",   
-         "cumulative": False
-         },
-        "Years since first listen (cumulative)": {
-        "type": "rel",
-         #"period": "YS",   
-         "cumulative": True
-         },
-        "Months aggregated": {
-         "type": "agg",
-         "agg_period": "month",   
-         "cumulative": False
-         },
-        "Days aggregated": {
-         "type": "agg",
-         "agg_period": "weekday",   
-         "cumulative": False
-         },
-        "Hour aggregated": {
-         "type": "agg",
-         "agg_period": "hour",   
-         "cumulative": False
-         },
-        "Day and hour aggregated": {
-         "type": "agg",
-         "agg_period": "day and hour",   
-         "cumulative": False
-         }
-    }   
-    
+    # plot options
+    plot_options = calendar_plot_options | relative_plot_options | aggregate_plot_options
+    # plot option selection
     select_plot_type = st.selectbox(
                             "Time range",
                             plot_options.keys(),
                             key = f"{display_item}_type_select")
     options = plot_options[select_plot_type]
 
+    # only plot if a selection has been made
     if selection:
+
+        # have to handle the artist vs track-artist or album-artist cases differently
         if display_item == "artist":
             grouping = ["artist"]
             filter_col = "artist"
@@ -133,12 +181,23 @@ def show_play_history(df_history, df_summary, filter_sel, display_item):
         elif options["type"] == "agg":
             plays = aggregate_listens(filtered, filter_col, options["agg_period"], make_multi)
 
-         
+        # get the plot
         fig = plot_play_histories(plays, options)
         st.pyplot(fig,width='stretch')
         plt.close(fig)
         
 def calendar_listens(df, grouping, df_history, period, make_multi=None):
+    """
+    df: filtered selection of listening history
+    grouping: artist, track-artist, album-artist
+    df_history: listening history dataframe
+    period: calendar period to resample on
+    make_multi: unused
+
+    returns a dataframe with the play history in df resampled according to period
+    the full listening history index of df_history is used to make sure that all play histories
+    are recorded over the full time period
+    """
     df = df.copy()
     df = df.set_index("local_datetime")
     full_index = df_history.set_index("local_datetime").resample(period).size().index
@@ -149,9 +208,17 @@ def calendar_listens(df, grouping, df_history, period, make_multi=None):
     return plays
 
 def aggregate_listens(df, filter_col, agg_period, make_multi):
+    """
+    df: filtered selection of listening history
+    filter_col: selects artist, track-artist, album-artist
+    agg_period: time period on which to aggregate
+    make_multi: use a multiindex in returned df for track-artist, album-artist
+    """
+    
     df = df.copy()
     df = df.set_index("local_datetime")
 
+    # supported aggregrations
     times = {
         "month": df.index.month,
         "weekday": df.index.weekday,
@@ -159,6 +226,9 @@ def aggregate_listens(df, filter_col, agg_period, make_multi):
         "day and hour": df.index.weekday * 24 + df.index.hour
     }
 
+    # how many "buckets" in each aggregations
+    # used below to ensure that we have values in all buckets
+    # for all items
     domains = {
     "month": range(1, 13),
     "weekday": range(7),
@@ -167,7 +237,7 @@ def aggregate_listens(df, filter_col, agg_period, make_multi):
     }
 
     plays = df.groupby([filter_col, times[agg_period]]).size()
-    # count zero values
+    # count zero values across the full domains 
     plays = plays.groupby(level=0).apply(
             lambda x: x.droplevel(0).reindex(domains[agg_period], fill_value=0)
     ).unstack(-1)
@@ -176,22 +246,27 @@ def aggregate_listens(df, filter_col, agg_period, make_multi):
         plays.index = pd.MultiIndex.from_tuples(plays.index, names=make_multi)
     return plays
     
-def show_all_history(df, summary_df, life_divisions):
+def show_all_history(df, life_divisions):
+    """
+    controls selection and plotting of complete listening history
+    df: full listening history
+    life_divisions: customisable date ranges of interest specified in config.py
+    """
     
     df = df.set_index("local_datetime").sort_index()
     min_date = df.index.min().strftime("%Y-%m-%d")
     max_date = df.index.max().strftime("%Y-%m-%d")
     all_range = (min_date, max_date) 
 
+    # if no life divisions are specified we will make a slider based on the full range
     if life_divisions is None:
         dates = all_range
+    # otherwise we make a selectbox to easily apply custom ranges to the full range slider
     else:
         life_divisions = {
         k: (min_date if v[0] is None else v[0], max_date if v[1] is None else v[1]) for k,v in life_divisions.items() 
         }
-        range_options = {
-            "All": all_range
-            } | life_divisions
+        range_options = {"All": all_range} | life_divisions
     
         sel_range =st.selectbox(
             "Life divisions",
@@ -201,75 +276,30 @@ def show_all_history(df, summary_df, life_divisions):
         dates = range_options[sel_range]
 
     sel_range_val = ( datetime.datetime.strptime(dates[0], '%Y-%m-%d'), datetime.datetime.strptime(dates[1], '%Y-%m-%d'))
-    
+
+    # slider to choose the date range to plot
     start, end = st.slider("Date range",
-        df.index.min().to_pydatetime(),
-        df.index.max().to_pydatetime(),
-        sel_range_val  )
+        min_value = df.index.min().to_pydatetime(),
+        max_value = df.index.max().to_pydatetime(),
+        value = sel_range_val
+        )
+        
+    # plot options 
+    plot_options = calendar_plot_options | aggregate_plot_options
 
-    plot_options = {
-        "Calendar years": {
-        "type": "cal",
-         "period": "YS",   
-         "cumulative": False
-         },
-        "Calendar years (cumulative)": {
-        "type": "cal",
-         "period": "YS",   
-         "cumulative": True
-         },
-        "Calendar months": {
-        "type": "cal",
-         "period": "ME",   
-         "cumulative": False
-         },
-        "Calendar months (cumulative)": {
-        "type": "cal",
-         "period": "ME",   
-         "cumulative": True
-         },
-        "Calendar days": {
-        "type": "cal",
-         "period": "D",   
-         "cumulative": False
-         },
-        "Calendar days (cumulative)": {
-        "type": "cal",
-         "period": "D",   
-         "cumulative": True
-         },
-        "Months aggregated": {
-         "type": "agg",
-         "agg_period": "month",   
-         "cumulative": False
-         },
-        "Weekdays aggregated": {
-         "type": "agg",
-         "agg_period": "weekday",   
-         "cumulative": False
-         },
-        "Hour aggregated": {
-         "type": "agg",
-         "agg_period": "hour",   
-         "cumulative": False
-         },
-        "Weekday and hour aggregated": {
-         "type": "agg",
-         "agg_period": "day and hour",   
-         "cumulative": False
-         }
-    }
-
+    # plot type selection box
     select_plot_type = st.selectbox(
                         "Time range",
                         plot_options.keys(),
                         key = f"everything_type_select")
     options = plot_options[select_plot_type]
 
+    # if a plot type is selected 
     if select_plot_type:
+        # calendar plots
         if options["type"] == "cal":
             fig = plot_time_data(df, options["period"], start, end, options["cumulative"])
-        # aggregations
+        # aggregation plots
         elif options["type"] == "agg":
             agg_period = options["agg_period"]
             fig = plot_time_agg(df, agg_period, start, end)

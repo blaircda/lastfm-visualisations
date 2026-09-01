@@ -11,7 +11,9 @@ excludes= {
 whereabouts = [
     (None, "2015-08-22", "Europe/Dublin"),
     ("2015-08-22", None, "Europe/Brussels"),
-    ("2016-01-25", "2016-02-07", "Asia/Seoul")
+    ("2014-05-03", "2014-03-23", "Asia/Tokyo"),
+    ("2016-01-25", "2016-02-07", "Asia/Seoul"),
+    ("2016-09-12", "2016-09-19", "Europe/Istanbul")
 ]
 
 life_divisions = {
