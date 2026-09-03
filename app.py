@@ -17,7 +17,7 @@ with content:
     st.write("Data: csv download via https://mainstream.ghan.nl/export.html")
     st.write(f"Timespan: {start.strftime("%Y-%m-%d")} to {end.strftime("%Y-%m-%d")}. Total plays: {total_plays}")
     # create tabs for different  visualisations
-    play_hist_tab, power_law_tab, old_new_tab = st.tabs(["Play histories", "Power laws", "Old vs new"])
+    play_hist_tab, agg_tab, power_law_tab, old_new_tab = st.tabs(["Play histories", "Aggregations", "Power laws", "Old vs new"])
 
 ########################################################################
 # play histories
@@ -36,7 +36,24 @@ with play_hist_tab:
         show_play_history(listening_data, summary, first_sel, "album")
     with tab4:
         show_all_history(listening_data, life_divisions)
-        
+
+########################################################################
+# aggregations
+########################################################################
+with agg_tab:
+    st.header("Aggregations")
+
+    tab1, tab2, tab3 = st.tabs(["Tracks", "Artists", "Albums"])
+    with tab1:
+        first_sel, agg_type = agg_play_history(listening_data,"track", key="agg")
+        show_agg_play_history(first_sel, "track", agg_type=agg_type, key="agg")
+    with tab2:
+        first_sel, agg_type = agg_play_history(listening_data,"artist", key="agg")
+        show_agg_play_history(first_sel, "artist", agg_type=agg_type, key="agg")
+    with tab3:
+        first_sel, agg_type = agg_play_history(listening_data,"album", key="agg")
+        show_agg_play_history(first_sel, "album", agg_type=agg_type, key="agg")
+
 ########################################################################
 # power law fits of listening data
 ########################################################################
