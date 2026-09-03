@@ -47,6 +47,8 @@ def plot_play_histories(df, options):
         ax.set_xticks(ticks)
         ax.set_xticklabels(tick_labels)
 
+    ax.grid(True, alpha=0.3)
+
     ax.plot(data.columns, data.T, marker="o")
 
     if options["type"] == "cal":
@@ -65,6 +67,13 @@ def plot_play_histories(df, options):
     return fig
     
 def plot_time_data(df, freq, start, end, cumulative = False):
+    """
+    plots single play history in df between start and end
+    resampled according to freq
+    """
+    df = df.loc[start:end]
+    plays = df.resample(freq).size()
+
     label = {
         "YS": "year",
         "ME": "month",
@@ -74,15 +83,13 @@ def plot_time_data(df, freq, start, end, cumulative = False):
     
     fig, ax = plt.subplots(figsize=(15, 10))
 
-    df = df.loc[start:end]
-    plays = df.resample(freq).size()
-
     if cumulative:
         y_vals = plays.cumsum()
         ax.set_ylabel("Plays (cumulative)")
     else:
         y_vals = plays
         ax.set_ylabel("Plays")
+    ax.grid(True, alpha=0.3)
 
     ax.plot(plays.index,y_vals, marker="o")
     ax.set_title(f"Plays per {label.get(freq, "time")}")
@@ -92,7 +99,10 @@ def plot_time_data(df, freq, start, end, cumulative = False):
     return fig
 
 def plot_time_agg(df, agg, start, end,):
-
+    """
+    plots single play history in df between start and end
+    aggregated according to agg
+    """
     df = df.loc[start:end]
     #df = df.set_index("local_datetime")
 
