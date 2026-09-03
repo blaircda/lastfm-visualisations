@@ -362,6 +362,7 @@ def show_agg_play_history(df, display_item, agg_type, key):
 
     top = df.nlargest(100, select_time_bucket, keep="all")
     to_show = top[select_time_bucket]
+    to_show = to_show.rename("Plays")
     st.write(to_show)
 
     
