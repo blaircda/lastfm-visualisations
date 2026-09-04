@@ -43,7 +43,7 @@ def plot_play_histories(df, options):
             ax.tick_params(axis="x", labelrotation=90)
         else:
             ticks = data.columns
-            tick_labels = labels[agg]
+            tick_labels = labels.get(agg, ticks)
         ax.set_xticks(ticks)
         ax.set_xticklabels(tick_labels)
 
@@ -106,14 +106,23 @@ def plot_time_agg(df, agg, start, end,):
     df = df.loc[start:end]
     #df = df.set_index("local_datetime")
 
+    min_year = min(df.index.year)
+    max_year = max(df.index.year)
+
+    # supported aggregrations
     times = {
+        "year": df.index.year, 
         "month": df.index.month,
         "weekday": df.index.weekday,
         "hour": df.index.hour,
         "day and hour": df.index.weekday * 24 + df.index.hour
     }
 
+    # how many "buckets" in each aggregations
+    # used below to ensure that we have values in all buckets
+    # for all items
     domains = {
+        "year": range(min_year, max_year+1),
         "month": range(1, 13),
         "weekday": range(7),
         "hour": range(24),
@@ -127,13 +136,15 @@ def plot_time_agg(df, agg, start, end,):
         "month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
         "weekday": days,
         "hour": list(range(24)),
+        "year": list(range(min_year, max_year+1))
     }
 
     plays = df.groupby(times[agg]).size()
     # count zero values
     plays = plays.reindex(domains[agg], fill_value=0)    
     
-    fig, ax = plt.subplots(figsize=(15, 10)) 
+    fig, ax = plt.subplots(figsize=(15, 10))
+
     ax.bar(plays.index, plays.values)
 
     if agg == "day and hour":
