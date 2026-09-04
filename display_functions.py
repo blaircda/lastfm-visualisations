@@ -51,13 +51,7 @@ def filter_play_history(df_summary, display_item, key):
     """
     df = df_summary[display_item].to_frame()
     df["ranking"] = df["total_plays"].rank(method="min", ascending=False).astype(int)
-    
-    #min_ranking = 1
-    #max_ranking = max(df["ranking"])
-
-    #min_total_plays = min(df["total_plays"])
-    #max_total_plays = max(df["total_plays"])
-    
+        
     ranking_key = f"{display_item}_ranking_slider_{key}"
     total_play_key =  f"{display_item}_total_play_slider_{key}"
 
@@ -423,11 +417,42 @@ def show_summary_rankings( df, display_item, life_divisions):
     st.dataframe(df)
 
     return start, end
+
+def get_filter_grouping(display_item):
+    """
+    helper function for selecting artist vs track-artist, album-artist
+    """
+    if display_item == "artist":
+        grouping = ["artist"]
+        filter_col = "artist"
+        make_multi = None
+    else:
+        grouping = [display_item, "artist"]
+        filter_col = display_item+"_artist"
+        make_multi = grouping
+
+    return grouping, filter_col, make_multi
+
+    
+def truncate(df_history, summary, display_item, min_plays = 5):
+    """
+    truncates df_history to items with a minimum play count 
+    """
+    s = summary[display_item]
+    selection = s[ s>= min_plays]
+    _, filter_col, _ = get_filter_grouping(display_item)
+    mask = df_history[filter_col].isin(selection.index)
+    filtered = df_history[mask]
+    return filtered
+
     
 def agg_play_history(df_history, start, end, display_item, key):
     """
     allows selection of aggregation of df_history by different time buckets
     """
+    st.subheader("Detailed aggregated play counts for chosen date range")
+    st.write("Only including items with at least 5 play counts total")
+
     # reuse plot options although we only show tabular data here
     plot_options = aggregate_plot_options
     # plot option selection
@@ -439,14 +464,7 @@ def agg_play_history(df_history, start, end, display_item, key):
                             
     options = plot_options[select_plot_type]
 
-    if display_item == "artist":
-        grouping = ["artist"]
-        filter_col = "artist"
-        make_multi = None
-    else:
-        grouping = [display_item, "artist"]
-        filter_col = display_item+"_artist"
-        make_multi = grouping
+    grouping, filter_col, make_multi = get_filter_grouping(display_item)
 
     # passing the whole history for now
     # imposing a cutoff would speed up
@@ -463,9 +481,7 @@ def show_agg_play_history(df, display_item, agg_type, key):
     given a previous choice of agg_type and aggregated listening history in df
     outputs tabular data of df
     """
-
-    st.subheader("Detailed aggregated play counts for chosen date range")
-
+    
     days =  ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     hours = list(range(24))
     labels = {

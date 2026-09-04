@@ -47,14 +47,17 @@ with agg_tab:
     #   with st.expander("Complete rankings by custom time period"):
         start, end = show_summary_rankings(listening_data, "track", life_divisions)
     #    with st.expander("Aggregated rankings"):
-        first_sel, agg_type = agg_play_history(listening_data, start, end, "track", key="agg")
+        truncate_data = truncate(listening_data, summary, "track", min_plays = 5)
+        first_sel, agg_type = agg_play_history(truncate_data, start, end, "track", key="agg")
         show_agg_play_history(first_sel, "track", agg_type=agg_type, key="agg")
     with tab2:
         start, end = show_summary_rankings(listening_data, "artist", life_divisions)
+        truncate_data = truncate(listening_data, summary, "artist", min_plays = 5)
         first_sel, agg_type = agg_play_history(listening_data, start, end,"artist", key="agg")
         show_agg_play_history(first_sel, "artist", agg_type=agg_type, key="agg")
     with tab3:
         start, end = show_summary_rankings(listening_data, "album", life_divisions)
+        truncate_data = truncate(listening_data, summary, "album", min_plays = 5)
         first_sel, agg_type = agg_play_history(listening_data, start, end,"album", key="agg")
         show_agg_play_history(first_sel, "album", agg_type=agg_type, key="agg")
 
