@@ -201,7 +201,7 @@ def plot_fit_multi(df, items, fit_function):
 
         ax.scatter(x_data, y_data)
         ax.plot(x_model, y_model, label=lbl)
-
+    ax.grid(True, alpha=0.3)
     ax.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, -0.1),
@@ -234,6 +234,8 @@ def plot_fit(df, selection, fit_function):
     ax.plot(x_model, y_model, color='r')
     ax.set_xlabel("Years")
     ax.set_ylabel("Listens")
+    ax.grid(True, alpha=0.3)
+
     ptitle = ""
     if fit_function == power_law:
         a = str(int(round(fit_params[0],0)))
@@ -308,6 +310,8 @@ def plot_amplitudes_decays(df):
         ax.text(amplitudes[i]+xshift,decays[i]+yshift," -"+name)
     ax.set_xlabel("Coefficient")
     ax.set_ylabel("Exponent")
+    ax.grid(True, alpha=0.3)
+
     return fig
 
 def plot_amplitudes_decays_selection(df,items):
@@ -336,5 +340,6 @@ def plot_amplitudes_decays_selection(df,items):
     ax.set_xlabel("Coefficient")
     ax.set_ylabel("Exponent")
     #adjust_text(names)
+    ax.grid(True, alpha=0.3)
 
     return fig

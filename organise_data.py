@@ -35,6 +35,9 @@ def history_to_df(history_file, excludes):
     # anchored to end of string ($)
     df[["track","album"]] = df[["track","album"]].replace(r' -.*[Rr]emaster.*$','',regex=True)
 
+    # explicitly fill in missing album data with placeholder None
+    df["album"] = df["album"].fillna(value="None")
+
     # useful to add columns combining track-artist and album-artist
     # used for later filtering 
     df["track_artist"] = list(zip(df["track"], df["artist"]))

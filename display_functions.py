@@ -494,8 +494,9 @@ def show_agg_play_history(df, display_item, agg_type, key):
 
     df = df.sort_values(by=df.columns[0], ascending=False)
     df.columns = labels.get(agg_type, df.columns)
-    
+
     st.dataframe(df)
+    #    st.dataframe(df.style.highlight_max(axis=0))
 
     #def agg_label(x):
     #    return (labels[agg_type][int(x) - 1] if agg_type == "month" else str(labels[agg_type][int(x)]))
@@ -557,10 +558,17 @@ def show_power_laws(df_history, df_summary, selection, display_item):
         sliders = []
         if len(df)>1:
             for k in range(2):
-                param = df[f"param_{k}"]    
-                min_param = min(param)
-                max_param = max(param)
-                sliders.append( st.slider(param_name[k], min_param, max_param, (min_param, max_param), key=f"{display_item}_PL_slider_any_{k}") )
+                param = sorted(list( df[f"param_{k}"] ))
+                #sliders.append( st.slider(param_name[k], min_param, max_param, (min_param, max_param), key=f"{display_item}_PL_slider_any_{k}") )
+                sliders.append(
+                                st.select_slider(
+                                    param_name[k],
+                                    options = param,
+                                    value = (param[0], param[-1]),
+                                    key=f"{display_item}_PL_slider_any_{k}",
+                                    format_func = lambda x: f"{x:.2f}"
+                                    )
+                            )
             filter_df = df[ (df["param_0"] >= sliders[0][0] ) & (df["param_0"] <= sliders[0][1]) &  (df["param_1"] >= sliders[1][0] ) & (df["param_1"] <= sliders[1][1]) ]
         else:
             filter_df = df
