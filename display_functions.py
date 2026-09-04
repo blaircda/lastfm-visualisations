@@ -207,6 +207,7 @@ def calendar_listens(df, grouping, df_history, period, make_multi=None):
     #    plays.index = pd.MultiIndex.from_tuples(plays.index, names=make_multi)
     return plays
 
+@st.cache_data
 def aggregate_listens(df, filter_col, agg_period, make_multi):
     """
     df: filtered selection of listening history
@@ -304,7 +305,68 @@ def show_all_history(df, life_divisions):
             agg_period = options["agg_period"]
             fig = plot_time_agg(df, agg_period, start, end)
         st.pyplot(fig,width='stretch')
-        
+
+########################################################################
+def agg_play_history(df_history, display_item, key):
+    # plot options
+    plot_options = aggregate_plot_options
+    # plot option selection
+    select_plot_type = st.selectbox(
+                            "Time range",
+                            plot_options.keys(),
+                            key = f"{key}_{display_item}_type_select")
+                            
+    options = plot_options[select_plot_type]
+
+    # only plot if a selection has been made
+    if display_item == "artist":
+        grouping = ["artist"]
+        filter_col = "artist"
+        make_multi = None
+    else:
+        grouping = [display_item, "artist"]
+        filter_col = display_item+"_artist"
+        make_multi = grouping
+
+    filtered = df_history
+    plays = aggregate_listens(filtered, filter_col, options["agg_period"], make_multi)
+    
+    return plays, options["agg_period"]
+
+def show_agg_play_history(df, display_item, agg_type, key):
+
+    days =  ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    hours = list(range(24))
+    labels = {
+        "month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        "weekday": days,
+        "hour": hours,
+        "day and hour": [x+" "+str(h)+"h" for x in days for h in hours]
+    }
+
+
+    df = df.sort_values(by=df.columns[0], ascending=False)
+    df.columns = labels[agg_type]
+    st.dataframe(df)
+
+    #def agg_label(x):
+    #    return (labels[agg_type][int(x) - 1] if agg_type == "month" else str(labels[agg_type][int(x)]))
+
+    cols = df.columns
+    select_time_bucket = st.selectbox(
+        "Time range",
+        cols,
+        key = f"{key}_{display_item}_time_select",
+    #    format_func= agg_label
+    )
+
+    top = df.nlargest(100, select_time_bucket, keep="all")
+    to_show = top[select_time_bucket]
+    to_show = to_show.rename("Plays")
+    st.write(to_show)
+
+    
+
 ########################################################################
 
 def show_power_laws(df_history, df_summary, selection, display_item):
